@@ -20,7 +20,7 @@ public class AccuracyTracker : Feature
 {
     public override string Name => "命中率显示";
 
-    public override FeatureGroup Group => ModuleGroup;
+    public override bool InlineSettingsIntoParentMenu => true;
 
     #region FeatureSettings
     [FeatureConfig]

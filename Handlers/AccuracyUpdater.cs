@@ -104,7 +104,8 @@ public class AccuracyUpdater : MonoBehaviour
     private static IEnumerator RegisterPlayerCoroutine(SNet_Player player)
     {
         var yielder = new WaitForSecondsRealtime(1f);
-        while (true)
+        int timeout = 90;
+        while (timeout-- > 0)
         {
             if (player.HasCharacterSlot && player.CharacterIndex != -1)
             {
@@ -152,7 +153,7 @@ public class AccuracyUpdater : MonoBehaviour
 
     internal void UpdateAccuracyData(pAccuracyData data)
     {
-        if (!data.m_player.TryGetPlayer(out var player))
+        if (!data.m_player.TryGetPlayer(out var player) || !AccuracyDataLookup.ContainsKey(player.Lookup))
         {
             return;
         }
