@@ -46,10 +46,6 @@ public class AccuracyTracker : Feature
         [FSDescription("若此项为 False, 则使用玩家名称")]
         public bool UseGenericName { get => AccuracyUpdater.UseGenericName; set => AccuracyUpdater.UseGenericName = value; }
 
-        [FSDisplayName("通用玩家名称设置")]
-        [FSReadOnly]
-        public List<PlayerNameEntry> CharacterNames { get => AccuracyUpdater.CharacterNamesLookup.Values.ToList(); set { } }
-
         [FSInline]
         [FSHeader("显示位置设置")]
         [FSDisplayName("显示位置设置")]
@@ -166,13 +162,27 @@ public class AccuracyTracker : Feature
         {
             if (!IsSetup)
             {
-                GameObject gameObject = new("AccuracyShower");
+                GameObject gameObject = new("AccurayShower");
                 UnityEngine.Object.DontDestroyOnLoad(gameObject);
                 if (gameObject.GetComponent<AccuracyUpdater>() == null)
                 {
                     gameObject.AddComponent<AccuracyUpdater>();
                 }
                 IsSetup = true;
+            }
+        }
+    }
+
+    [ArchivePatch(typeof(CM_PageExpeditionSuccess), nameof(CM_PageExpeditionSuccess.TryGetArchetypeName))]
+    private class CM_PageExpeditionSuccess__TryGetArchetypeName__Patch
+    {
+        private static void Postfix(PlayerBackpack backpack, InventorySlot slot, ref string name)
+        {
+            if (slot != InventorySlot.GearStandard && slot != InventorySlot.GearSpecial)
+                return;
+            if (AccuracyUpdater.TryGetPlayerAccuracyData(backpack.Owner, out var data))
+            {
+                name += $"{data.GetAccuracyText(slot)}";
             }
         }
     }
@@ -313,9 +323,9 @@ public class AccuracyTracker : Feature
                     }
                 }
             }
-            else if (LastWieldValidSlot.TryGetValue(player.Lookup, out var slot))
+            else if (LastWieldValidSlot.TryGetValue(player.Lookup, out wieldSlot))
             {
-                if (!PlayerBackpackManager.TryGetBackpack(player, out var backpack) || !backpack.TryGetBackpackItem(slot, out var backpackItem))
+                if (!PlayerBackpackManager.TryGetBackpack(player, out var backpack) || !backpack.TryGetBackpackItem(wieldSlot, out var backpackItem))
                 {
                     return;
                 }
@@ -333,7 +343,7 @@ public class AccuracyTracker : Feature
                     Logs.LogError("Not BulletWeapon but fire bullets?");
                 }
             }
-            AccuracyUpdater.AddShotted(player.Lookup, count);
+            AccuracyUpdater.AddShotted(player.Lookup, wieldSlot, count);
             AccuracyUpdater.MarkAccuracyDataNeedUpdate(player.Lookup);
         }
     }
@@ -358,11 +368,17 @@ public class AccuracyTracker : Feature
                 {
                     return;
                 }
+                var slot = playerAgent.Inventory.WieldedSlot;
+                if (slot != InventorySlot.GearStandard && slot != InventorySlot.GearSpecial)
+                {
+                    Logs.LogError("Not wielding BulletWeapon but ReceiveBulletDamage?");
+                    return;
+                }
                 if (__instance.DamageLimbs[data.limbID].m_type == eLimbDamageType.Weakspot)
                 {
-                    AccuracyUpdater.AddWeakspotHitted(player.Lookup, 1);
+                    AccuracyUpdater.AddWeakspotHitted(player.Lookup, slot, 1);
                 }
-                AccuracyUpdater.AddHitted(player.Lookup, 1);
+                AccuracyUpdater.AddHitted(player.Lookup, slot, 1);
                 AccuracyUpdater.MarkAccuracyDataNeedUpdate(player.Lookup);
             }
         }
@@ -425,8 +441,8 @@ public class AccuracyTracker : Feature
             CanCalc = false;
             IsInWeaponFire = false;
             var player = __instance.Owner.Owner;
-            AccuracyUpdater.AddShotted(player.Lookup, (uint)BulletsCountPerFire);
-            AccuracyUpdater.AddHitted(player.Lookup, HitCount);
+            AccuracyUpdater.AddShotted(player.Lookup, __instance.ItemDataBlock.inventorySlot, (uint)BulletsCountPerFire);
+            AccuracyUpdater.AddHitted(player.Lookup, __instance.ItemDataBlock.inventorySlot, HitCount);
             AccuracyUpdater.MarkAccuracyDataNeedUpdate(player.Lookup);
         }
     }
@@ -464,8 +480,8 @@ public class AccuracyTracker : Feature
             CanCalc = false;
             IsInWeaponFire = false;
             var player = __instance.Owner.Owner;
-            AccuracyUpdater.AddShotted(player.Lookup, (uint)BulletsCountPerFire);
-            AccuracyUpdater.AddHitted(player.Lookup, HitCount);
+            AccuracyUpdater.AddShotted(player.Lookup, __instance.ItemDataBlock.inventorySlot, (uint)BulletsCountPerFire);
+            AccuracyUpdater.AddHitted(player.Lookup, __instance.ItemDataBlock.inventorySlot, HitCount);
             AccuracyUpdater.MarkAccuracyDataNeedUpdate(player.Lookup);
         }
     }
@@ -506,8 +522,8 @@ public class AccuracyTracker : Feature
             CanCalc = false;
             IsInWeaponFire = false;
             var player = __instance.Owner.Owner;
-            AccuracyUpdater.AddShotted(player.Lookup, (uint)BulletsCountPerFire);
-            AccuracyUpdater.AddHitted(player.Lookup, HitCount);
+            AccuracyUpdater.AddShotted(player.Lookup, __instance.ItemDataBlock.inventorySlot, (uint)BulletsCountPerFire);
+            AccuracyUpdater.AddHitted(player.Lookup, __instance.ItemDataBlock.inventorySlot, HitCount);
             AccuracyUpdater.MarkAccuracyDataNeedUpdate(player.Lookup);
         }
     }
@@ -546,8 +562,8 @@ public class AccuracyTracker : Feature
             CanCalc = false;
             IsInWeaponFire = false;
             var player = __instance.Owner.Owner;
-            AccuracyUpdater.AddShotted(player.Lookup, (uint)BulletsCountPerFire);
-            AccuracyUpdater.AddHitted(player.Lookup, HitCount);
+            AccuracyUpdater.AddShotted(player.Lookup, __instance.ItemDataBlock.inventorySlot, (uint)BulletsCountPerFire);
+            AccuracyUpdater.AddHitted(player.Lookup, __instance.ItemDataBlock.inventorySlot, HitCount);
             AccuracyUpdater.MarkAccuracyDataNeedUpdate(player.Lookup);
         }
     }
@@ -564,7 +580,7 @@ public class AccuracyTracker : Feature
             var playerAgent = sourceAgent.TryCast<PlayerAgent>();
             if (playerAgent != null && __instance.m_type == eLimbDamageType.Weakspot)
             {
-                AccuracyUpdater.AddWeakspotHitted(playerAgent.Owner.Lookup, 1);
+                AccuracyUpdater.AddWeakspotHitted(playerAgent.Owner.Lookup, playerAgent.Inventory.WieldedSlot, 1);
             }
         }
     }

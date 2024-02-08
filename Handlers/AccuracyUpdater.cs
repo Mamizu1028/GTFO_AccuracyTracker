@@ -8,6 +8,7 @@ using TMPro;
 using UnityEngine;
 using static Hikaria.AccuracyTracker.Features.AccuracyTracker;
 using static Hikaria.AccuracyTracker.Managers.AccuracyManager;
+using static Il2CppSystem.Globalization.CultureInfo;
 
 namespace Hikaria.AccuracyTracker.Handlers;
 
@@ -103,8 +104,8 @@ public class AccuracyUpdater : MonoBehaviour
 
     private static IEnumerator RegisterPlayerCoroutine(SNet_Player player)
     {
-        var yielder = new WaitForSecondsRealtime(1f);
-        int timeout = 90;
+        var yielder = new WaitForSecondsRealtime(2f);
+        int timeout = 120;
         while (timeout-- > 0)
         {
             if (player.HasCharacterSlot && player.CharacterIndex != -1)
@@ -125,7 +126,7 @@ public class AccuracyUpdater : MonoBehaviour
         {
             foreach (var data in AccuracyDataLookup.Values.ToList())
             {
-                var owner = data.m_Owner;
+                var owner = data.Owner;
                 if (AccuracyDataNeedUpdate[owner.Lookup] && AccuracyRegisteredCharacterIndex.TryGetValue(owner.Lookup, out var index))
                 {
                     UpdateAccuracyData(index, data.GetAccuracyText());
@@ -146,6 +147,7 @@ public class AccuracyUpdater : MonoBehaviour
                         SetVisible(index, false);
                     }
                 }
+                yield return null;
             }
             yield return yielder;
         }
@@ -153,11 +155,11 @@ public class AccuracyUpdater : MonoBehaviour
 
     internal void UpdateAccuracyData(pAccuracyData data)
     {
-        if (!data.m_player.TryGetPlayer(out var player) || !AccuracyDataLookup.ContainsKey(player.Lookup))
+        if (!data.Owner.TryGetPlayer(out var player) || !AccuracyDataLookup.TryGetValue(player.Lookup, out var accData))
         {
             return;
         }
-        AccuracyDataLookup[player.Lookup].Set(data);
+        accData.Set(data);
         AccuracyDataNeedUpdate[player.Lookup] = true;
     }
 
@@ -188,9 +190,7 @@ public class AccuracyUpdater : MonoBehaviour
         foreach (var lookup in AccuracyDataLookup.Keys.ToList())
         {
             var data = AccuracyDataLookup[lookup];
-            data.m_Hitted = 0;
-            data.m_Shotted = 0;
-            data.m_WeakspotHitted = 0;
+            data.DoClear();
             AccuracyDataNeedUpdate[lookup] = true;
         }
     }
@@ -228,7 +228,6 @@ public class AccuracyUpdater : MonoBehaviour
             else
             {
                 AccuracyTextMeshes[i].transform.parent.parent.gameObject.SetActive(false);
-                //AccuracyTextMeshes[i].transform.parent.parent.transform.localPosition = new(-70f, 1000f, 0f);
             }
         }
     }
@@ -244,36 +243,36 @@ public class AccuracyUpdater : MonoBehaviour
 
     internal static void UnregisterPlayer(ulong lookup)
     {
-        if (AccuracyRegisteredCharacterIndex.ContainsKey(lookup))
+        if (AccuracyRegisteredCharacterIndex.TryGetValue(lookup, out var index))
         {
-            SetVisible(AccuracyRegisteredCharacterIndex[lookup], false);
+            SetVisible(index, false);
         }
         AccuracyDataLookup.Remove(lookup);
         AccuracyDataNeedUpdate.Remove(lookup);
         AccuracyRegisteredCharacterIndex.Remove(lookup);
     }
 
-    internal static void AddHitted(ulong lookup, uint count)
+    internal static void AddHitted(ulong lookup, InventorySlot slot, uint count)
     {
-        if (AccuracyDataLookup.ContainsKey(lookup))
+        if (AccuracyDataLookup.TryGetValue(lookup, out var data))
         {
-            AccuracyDataLookup[lookup].AddHitted(count);
+            data.AddHitted(slot, count);
         }
     }
 
-    internal static void AddShotted(ulong lookup, uint count)
+    internal static void AddShotted(ulong lookup, InventorySlot slot, uint count)
     {
-        if (AccuracyDataLookup.ContainsKey(lookup))
+        if (AccuracyDataLookup.TryGetValue(lookup, out var data))
         {
-            AccuracyDataLookup[lookup].AddShotted(count);
+            data.AddShotted(slot, count);
         }
     }
 
-    internal static void AddWeakspotHitted(ulong lookup, uint count)
+    internal static void AddWeakspotHitted(ulong lookup, InventorySlot slot, uint count)
     {
-        if (AccuracyDataLookup.ContainsKey(lookup))
+        if (AccuracyDataLookup.TryGetValue(lookup, out var data))
         {
-            AccuracyDataLookup[lookup].AddWeakspotHitted(count);
+            data.AddWeakspotHitted(slot, count);
         }
     }
 
@@ -454,83 +453,142 @@ public class AccuracyUpdater : MonoBehaviour
     {
         internal AccuracyData(SNet_Player player)
         {
-            m_Owner = player;
-            m_Hitted = 0;
-            m_Shotted = 0;
-            m_WeakspotHitted = 0;
+            Owner = player;
+            m_SlotDataLookup[InventorySlot.GearStandard] = new();
+            m_SlotDataLookup[InventorySlot.GearSpecial] = new();
         }
 
         internal void Set(pAccuracyData data)
         {
-            data.m_player.TryGetPlayer(out var player);
-            m_Owner = player;
-            m_Hitted = data.m_Hitted;
-            m_Shotted = data.m_Shotted;
-            m_WeakspotHitted = data.m_WeakspotHitted;
+            data.Owner.TryGetPlayer(out var player);
+            Owner = player;
+            m_SlotDataLookup[InventorySlot.GearStandard].Set(data.StandardSlotData);
+            m_SlotDataLookup[InventorySlot.GearSpecial].Set(data.SpecialSlotData);
         }
 
-        internal void AddShotted(uint count)
+        internal void AddShotted(InventorySlot slot, uint count)
         {
-            m_Shotted += count;
+            if (m_SlotDataLookup.TryGetValue(slot, out var data))
+            {
+                data.m_Shotted += count;
+            }
         }
 
-        internal void AddHitted(uint count)
+        internal void AddHitted(InventorySlot slot, uint count)
         {
-            m_Hitted += count;
+            if (m_SlotDataLookup.TryGetValue(slot, out var data))
+            {
+                data.m_Hitted += count;
+            }
         }
 
-        internal void AddWeakspotHitted(uint count)
+        internal void AddWeakspotHitted(InventorySlot slot, uint count)
         {
-            m_WeakspotHitted += count;
+            if (m_SlotDataLookup.TryGetValue(slot, out var data))
+            {
+                data.m_WeakspotHitted += count;
+            }
         }
 
-        public SNet_Player GetOwner()
+        internal void DoClear()
         {
-            return m_Owner;
+            m_SlotDataLookup.Clear();
         }
 
-        public uint GetHitted()
+        public SNet_Player Owner { get; private set; }
+        public uint TotalHitted
         {
-            return m_Hitted;
+            get
+            {
+                var count = 0U;
+                foreach (var slot in m_SlotDataLookup.Keys)
+                {
+                    count += m_SlotDataLookup[slot].m_Hitted;
+                }
+                return count;
+            }
         }
-        public uint GetWeakspotHitted()
+        public uint TotalWeakspotHitted
         {
-            return m_WeakspotHitted;
+            get
+            {
+                var count = 0U;
+                foreach (var slot in m_SlotDataLookup.Keys)
+                {
+                    count += m_SlotDataLookup[slot].m_WeakspotHitted;
+                }
+                return count;
+            }
         }
-        public uint GetShotted()
+        public uint TotalShotted
         {
-            return m_Shotted;
+            get
+            {
+                var count = 0U;
+                foreach (var slot in m_SlotDataLookup.Keys)
+                {
+                    count += m_SlotDataLookup[slot].m_Shotted;
+                }
+                return count;
+            }
         }
 
-        internal SNet_Player m_Owner;
-
-        internal uint m_Hitted;
-
-        internal uint m_Shotted;
-
-        internal uint m_WeakspotHitted;
+        private Dictionary<InventorySlot, AccuracySlotData> m_SlotDataLookup = new();
 
         public string GetAccuracyText()
         {
-            if (!m_Owner.HasCharacterSlot)
+            if (!Owner.HasCharacterSlot)
             {
                 return string.Format(Settings.ShowFormat, "-", "-", "-", 0, 0, 0);
             }
-            string prefix = IsAccuracyListener(m_Owner.Lookup) || (IsMasterHasAcc && m_Owner.IsBot) || m_Owner.IsLocal ? "": "*";
-            string playerName = UseGenericName ? Settings.CharacterNames[m_Owner.CharacterIndex].Name : m_Owner.NickName.RemoveHtmlTags();
-            if (m_Shotted == 0)
+            string prefix = IsAccuracyListener(Owner.Lookup) || (IsMasterHasAcc && Owner.IsBot) || Owner.IsLocal ? "": "*";
+            string playerName = UseGenericName ? CharacterNamesLookup[Owner.CharacterIndex].Name : Owner.NickName.RemoveHtmlTags();
+            if (TotalShotted == 0)
             {
                 return $"{prefix}{string.Format(Settings.ShowFormat, playerName, "-%", "-%", 0, 0, 0)}";
             }
             else
             {
-                return $"{prefix}{string.Format(Settings.ShowFormat, playerName, $"<{Settings.FontColors.HittedRatioColor.ToHexString()}>{(int)(100 * m_Hitted / m_Shotted)}%</color>", m_Hitted == 0 ? "-" : $"<{Settings.FontColors.WeakspotHittedRatioColor.ToHexString()}>{(int)(100 * m_WeakspotHitted / m_Hitted)}%</color>", $"<{Settings.FontColors.WeakspotHittedColor.ToHexString()}>{m_WeakspotHitted}</color>", $"<{Settings.FontColors.HittedColor.ToHexString()}>{m_Hitted}</color>", $"<{Settings.FontColors.ShottedColor.ToHexString()}>{m_Shotted}</color>")}";
+                return $"{prefix}{string.Format(Settings.ShowFormat, playerName, $"<{Settings.FontColors.HittedRatioColor.ToHexString()}>{(int)(100 * TotalHitted / TotalShotted)}%</color>", TotalHitted == 0 ? "-" : $"<{Settings.FontColors.WeakspotHittedRatioColor.ToHexString()}>{(int)(100 * TotalWeakspotHitted / TotalHitted)}%</color>", $"<{Settings.FontColors.WeakspotHittedColor.ToHexString()}>{TotalWeakspotHitted}</color>", $"<{Settings.FontColors.HittedColor.ToHexString()}>{TotalHitted}</color>", $"<{Settings.FontColors.ShottedColor.ToHexString()}>{TotalShotted}</color>")}";
+            }
+        }
+
+        public string GetAccuracyText(InventorySlot slot)
+        {
+            if (!Owner.HasCharacterSlot || !m_SlotDataLookup.TryGetValue(slot, out var data))
+            {
+                return string.Format(Settings.ShowFormat, "-", "-", "-", 0, 0, 0);
+            }
+            string prefix = IsAccuracyListener(Owner.Lookup) || (IsMasterHasAcc && Owner.IsBot) || Owner.IsLocal ? "" : "*";
+            if (data.m_Shotted == 0)
+            {
+                return $"{prefix}{string.Format("{0}/{1}({2}/{3}/{4})", "-%", "-%", 0, 0, 0)}";
+            }
+            else
+            {
+                return $"{prefix}{string.Format("{0}/{1}({2}/{3}/{4})", $"{(int)(100 * data.m_Hitted / data.m_Shotted)}%", TotalHitted == 0 ? "-" : $"{(int)(100 * data.m_WeakspotHitted / data.m_Hitted)}%", $"{data.m_WeakspotHitted}", $"{data.m_Hitted}", $"{data.m_Shotted}")}";
             }
         }
 
         public pAccuracyData GetAccuracyData()
         {
-            return new(m_Owner, m_Hitted, m_Shotted, m_WeakspotHitted);
+            return new(Owner, m_SlotDataLookup);
+        }
+
+        internal class AccuracySlotData
+        {
+            internal void Set(pAccuracySlotData data)
+            {
+                m_Hitted = data.Hitted;
+                m_Shotted = data.Shotted;
+                m_WeakspotHitted = data.WeakspotHitted;
+                m_Slot = data.Slot;
+            }
+
+            public uint m_Hitted = 0;
+            public uint m_Shotted = 0;
+            public uint m_WeakspotHitted = 0;
+            public InventorySlot m_Slot = InventorySlot.None;
         }
     }
 }

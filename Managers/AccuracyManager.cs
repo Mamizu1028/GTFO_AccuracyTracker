@@ -1,4 +1,5 @@
 ﻿using GTFO.API;
+using Player;
 using SNetwork;
 using static Hikaria.AccuracyTracker.Features.AccuracyTracker;
 using static Hikaria.AccuracyTracker.Handlers.AccuracyUpdater;
@@ -24,7 +25,7 @@ public static class AccuracyManager
 
     private static void ReceiveAccuracyData(ulong senderID, pAccuracyData data)
     {
-        if (Instance != null && data.m_player.TryGetPlayer(out var player) && !player.IsLocal)
+        if (Instance != null && data.Owner.TryGetPlayer(out var player) && !player.IsLocal)
         {
             Instance.UpdateAccuracyData(data);
         }
@@ -92,21 +93,39 @@ public static class AccuracyManager
 
     public struct pAccuracyData
     {
-        public pAccuracyData(SNet_Player player, uint hitted, uint shotted, uint weakspotHitted)
+        internal pAccuracyData(SNet_Player player, Dictionary<InventorySlot, AccuracyData.AccuracySlotData> slotDatas)
         {
-            m_player = new();
-            m_player.SetPlayer(player);
-            m_Hitted = hitted;
-            m_Shotted = shotted;
-            m_WeakspotHitted = weakspotHitted;
+            Owner.SetPlayer(player);
+            StandardSlotData = new();
+            SpecialSlotData = new();
+            if (slotDatas.TryGetValue(InventorySlot.GearStandard, out var standardSlotData))
+            {
+                StandardSlotData = new(standardSlotData);
+            }
+            if (slotDatas.TryGetValue(InventorySlot.GearSpecial, out var specialSlotData))
+            {
+                SpecialSlotData = new(specialSlotData);
+            }
         }
 
-        public SNetStructs.pPlayer m_player;
+        public SNetStructs.pPlayer Owner = new();
+        public pAccuracySlotData StandardSlotData;
+        public pAccuracySlotData SpecialSlotData;
+    }
+    public struct pAccuracySlotData
+    {
+        internal pAccuracySlotData(AccuracyData.AccuracySlotData data)
+        {
 
-        public uint m_Hitted;
+            Hitted = data.m_Hitted;
+            Shotted = data.m_Shotted;
+            WeakspotHitted = data.m_WeakspotHitted;
+            Slot = data.m_Slot;
+        }
 
-        public uint m_Shotted;
-
-        public uint m_WeakspotHitted;
+        public uint Hitted = 0;
+        public uint Shotted = 0;
+        public uint WeakspotHitted = 0;
+        public InventorySlot Slot = InventorySlot.None;
     }
 }
