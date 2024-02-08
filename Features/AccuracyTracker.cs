@@ -182,7 +182,7 @@ public class AccuracyTracker : Feature
                 return;
             if (AccuracyUpdater.TryGetPlayerAccuracyData(backpack.Owner, out var data))
             {
-                name += $"{data.GetAccuracyText(slot)}";
+                name += $" | {data.GetAccuracyText(slot)}";
             }
         }
     }
