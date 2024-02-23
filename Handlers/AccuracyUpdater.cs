@@ -8,7 +8,6 @@ using TMPro;
 using UnityEngine;
 using static Hikaria.AccuracyTracker.Features.AccuracyTracker;
 using static Hikaria.AccuracyTracker.Managers.AccuracyManager;
-using static Il2CppSystem.Globalization.CultureInfo;
 
 namespace Hikaria.AccuracyTracker.Handlers;
 
@@ -108,6 +107,10 @@ public class AccuracyUpdater : MonoBehaviour
         int timeout = 120;
         while (timeout-- > 0)
         {
+            if (player == null)
+            {
+                yield break;
+            }
             if (player.HasCharacterSlot && player.CharacterIndex != -1)
             {
                 AccuracyRegisteredCharacterIndex[player.Lookup] = player.CharacterIndex;
@@ -438,15 +441,10 @@ public class AccuracyUpdater : MonoBehaviour
     private static bool _isSetup;
 
     private static Dictionary<int, TextMeshPro> AccuracyTextMeshes { get; set; } = new();
-
     private static Dictionary<ulong, AccuracyData> AccuracyDataLookup { get; set; } = new();
-
     private static Dictionary<ulong, bool> AccuracyDataNeedUpdate { get; set; } = new();
-
     private static Dictionary<int, bool> AccuracyTextMeshesVisible { get; set; } = new();
-
     private static Dictionary<ulong, int> AccuracyRegisteredCharacterIndex { get; set; } = new();
-
     private static Dictionary<ulong, Coroutine> RegisterPlayerCoroutines = new();
 
     public class AccuracyData

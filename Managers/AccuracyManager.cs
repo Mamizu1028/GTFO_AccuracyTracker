@@ -8,10 +8,13 @@ namespace Hikaria.AccuracyTracker.Managers;
 
 public static class AccuracyManager
 {
+    static string eAccuracyDataName = typeof(pAccuracyData).FullName + "v2";
+    static string eBroadcastListenAccuracyName = typeof(pBroadcastListenAccuracyData).FullName + "v2";
+
     internal static void Setup()
     {
-        NetworkAPI.RegisterEvent<pAccuracyData>(typeof(pAccuracyData).FullName, ReceiveAccuracyData);
-        NetworkAPI.RegisterEvent<pBroadcastListenAccuracyData>(typeof(pBroadcastListenAccuracyData).FullName, ReceiveBroadcastListenAccuracyData);
+        NetworkAPI.RegisterEvent<pAccuracyData>(eAccuracyDataName, ReceiveAccuracyData);
+        NetworkAPI.RegisterEvent<pBroadcastListenAccuracyData>(eBroadcastListenAccuracyName, ReceiveBroadcastListenAccuracyData);
     }
 
     private static void ReceiveBroadcastListenAccuracyData(ulong senderID, pBroadcastListenAccuracyData data)
@@ -33,12 +36,12 @@ public static class AccuracyManager
 
     internal static void SendAccuracyData(AccuracyData data)
     {
-        NetworkAPI.InvokeEvent(typeof(pAccuracyData).FullName, data.GetAccuracyData(), AccuracyDataListeners.Values.ToList(), SNet_ChannelType.GameNonCritical);
+        NetworkAPI.InvokeEvent(eAccuracyDataName, data.GetAccuracyData(), AccuracyDataListeners.Values.ToList(), SNet_ChannelType.GameNonCritical);
     }
 
     internal static void BroadcastAccuracyDataListener()
     {
-        NetworkAPI.InvokeEvent(typeof(pBroadcastListenAccuracyData).FullName, broadcastData, SNet_ChannelType.GameNonCritical);
+        NetworkAPI.InvokeEvent(eBroadcastListenAccuracyName, broadcastData, SNet_ChannelType.GameNonCritical);
     }
 
     private static pBroadcastListenAccuracyData broadcastData = new();
@@ -47,10 +50,10 @@ public static class AccuracyManager
     {
         if (playerEvent == SessionMemberEvent.JoinSessionHub)
         {
-            LobbyPlayers.TryAdd(player.Lookup, player);
+            LobbyPlayers[player.Lookup] = player;
             if (player.IsLocal)
             {
-                AccuracyDataListeners.TryAdd(player.Lookup, player);
+                AccuracyDataListeners[player.Lookup] = player;
             }
             RegisterPlayer(player);
         }
@@ -96,8 +99,6 @@ public static class AccuracyManager
         internal pAccuracyData(SNet_Player player, Dictionary<InventorySlot, AccuracyData.AccuracySlotData> slotDatas)
         {
             Owner.SetPlayer(player);
-            StandardSlotData = new();
-            SpecialSlotData = new();
             if (slotDatas.TryGetValue(InventorySlot.GearStandard, out var standardSlotData))
             {
                 StandardSlotData = new(standardSlotData);
@@ -108,9 +109,9 @@ public static class AccuracyManager
             }
         }
 
-        public SNetStructs.pPlayer Owner = new();
-        public pAccuracySlotData StandardSlotData;
-        public pAccuracySlotData SpecialSlotData;
+        public SNetStructs.pPlayer Owner { get; private set; } = new();
+        public pAccuracySlotData StandardSlotData { get; private set; } = new();
+        public pAccuracySlotData SpecialSlotData { get; private set; } = new();
     }
     public struct pAccuracySlotData
     {
@@ -123,9 +124,9 @@ public static class AccuracyManager
             Slot = data.m_Slot;
         }
 
-        public uint Hitted = 0;
-        public uint Shotted = 0;
-        public uint WeakspotHitted = 0;
-        public InventorySlot Slot = InventorySlot.None;
+        public uint Hitted { get; private set; } = 0;
+        public uint Shotted { get; private set; } = 0;
+        public uint WeakspotHitted { get; private set; } = 0;
+        public InventorySlot Slot { get; private set; } = InventorySlot.None;
     }
 }
