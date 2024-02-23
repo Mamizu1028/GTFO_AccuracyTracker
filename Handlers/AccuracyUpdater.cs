@@ -490,7 +490,10 @@ public class AccuracyUpdater : MonoBehaviour
 
         internal void DoClear()
         {
-            m_SlotDataLookup.Clear();
+            foreach (var data in m_SlotDataLookup.Values)
+            {
+                data.DoClear();
+            }
         }
 
         public SNet_Player Owner { get; private set; }
@@ -581,6 +584,13 @@ public class AccuracyUpdater : MonoBehaviour
                 m_Shotted = data.Shotted;
                 m_WeakspotHitted = data.WeakspotHitted;
                 m_Slot = data.Slot;
+            }
+
+            public void DoClear()
+            {
+                m_Hitted = 0;
+                m_Shotted = 0;
+                m_WeakspotHitted = 0;
             }
 
             public uint m_Hitted = 0;
