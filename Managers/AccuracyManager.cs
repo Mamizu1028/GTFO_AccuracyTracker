@@ -1,8 +1,10 @@
 ﻿using GTFO.API;
+using Il2CppInterop.Runtime.Attributes;
 using Player;
 using SNetwork;
 using static Hikaria.AccuracyTracker.Features.AccuracyTracker;
 using static Hikaria.AccuracyTracker.Handlers.AccuracyUpdater;
+using static UnityEngine.UI.GridLayoutGroup;
 
 namespace Hikaria.AccuracyTracker.Managers;
 
@@ -21,7 +23,7 @@ public static class AccuracyManager
     {
         if (SNet.Core.TryGetPlayer(senderID, out var player, true))
         {
-            AccuracyDataListeners.TryAdd(player.Lookup, player);
+            AccuracyDataListeners[player.Lookup] = player;
             MarkAllAccuracyDataNeedUpdate();
         }
     }
@@ -50,7 +52,6 @@ public static class AccuracyManager
     {
         if (playerEvent == SessionMemberEvent.JoinSessionHub)
         {
-            LobbyPlayers[player.Lookup] = player;
             if (player.IsLocal)
             {
                 AccuracyDataListeners[player.Lookup] = player;
@@ -59,7 +60,6 @@ public static class AccuracyManager
         }
         else if (playerEvent == SessionMemberEvent.LeftSessionHub)
         {
-            LobbyPlayers.Remove(player.Lookup);
             if (player.IsLocal)
             {
                 AccuracyDataListeners.Clear();
@@ -79,16 +79,9 @@ public static class AccuracyManager
         return AccuracyDataListeners.ContainsKey(lookup);
     }
 
-    public static bool IsLobbyPlayer(ulong lookup)
-    {
-        return LobbyPlayers.ContainsKey(lookup);
-    }
-
     public static bool IsMasterHasAcc => AccuracyDataListeners.Any(p => p.Key == SNet.Master.Lookup);
 
     private static Dictionary<ulong, SNet_Player> AccuracyDataListeners { get; set; } = new();
-
-    private static Dictionary<ulong, SNet_Player> LobbyPlayers { get; set; } = new();
 
     private struct pBroadcastListenAccuracyData
     {
@@ -109,15 +102,15 @@ public static class AccuracyManager
             }
         }
 
-        public SNetStructs.pPlayer Owner { get; private set; } = new();
-        public pAccuracySlotData StandardSlotData { get; private set; } = new();
-        public pAccuracySlotData SpecialSlotData { get; private set; } = new();
+        public SNetStructs.pPlayer Owner = new();
+        public pAccuracySlotData StandardSlotData = new();
+        public pAccuracySlotData SpecialSlotData = new();
     }
+
     public struct pAccuracySlotData
     {
         internal pAccuracySlotData(AccuracyData.AccuracySlotData data)
         {
-
             Hitted = data.m_Hitted;
             Shotted = data.m_Shotted;
             WeakspotHitted = data.m_WeakspotHitted;

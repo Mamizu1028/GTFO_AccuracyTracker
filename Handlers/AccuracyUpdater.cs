@@ -115,7 +115,7 @@ public class AccuracyUpdater : MonoBehaviour
             {
                 AccuracyRegisteredCharacterIndex[player.Lookup] = player.CharacterIndex;
                 AccuracyDataLookup[player.Lookup] = new(player);
-                AccuracyDataNeedUpdate[player.Lookup] = true;
+                AccuracyDataLookup[player.Lookup].NeedUpdate = true;
                 yield break;
             }
             yield return yielder;
@@ -127,13 +127,13 @@ public class AccuracyUpdater : MonoBehaviour
         var yielder = new WaitForSecondsRealtime(3f);
         while (true)
         {
-            foreach (var data in AccuracyDataLookup.Values.ToList())
+            foreach (var data in AccuracyDataLookup.Values)
             {
                 var owner = data.Owner;
-                if (AccuracyDataNeedUpdate[owner.Lookup] && AccuracyRegisteredCharacterIndex.TryGetValue(owner.Lookup, out var index))
+                if (data.NeedUpdate && AccuracyRegisteredCharacterIndex.TryGetValue(owner.Lookup, out var index))
                 {
-                    UpdateAccuracyData(index, data.GetAccuracyText());
-                    AccuracyDataNeedUpdate[owner.Lookup] = false;
+                    UpdateAccuracyTextMesh(index, data.GetAccuracyText());
+                    data.NeedUpdate = false;
                     if (SNet.IsMaster && (owner.IsBot || !IsAccuracyListener(owner.Lookup)) || owner.IsLocal)
                     {
                         SendAccuracyData(data);
@@ -150,7 +150,6 @@ public class AccuracyUpdater : MonoBehaviour
                         SetVisible(index, false);
                     }
                 }
-                yield return null;
             }
             yield return yielder;
         }
@@ -163,10 +162,10 @@ public class AccuracyUpdater : MonoBehaviour
             return;
         }
         accData.Set(data);
-        AccuracyDataNeedUpdate[player.Lookup] = true;
+        accData.NeedUpdate = true;
     }
 
-    private void UpdateAccuracyData(int index, string text)
+    private void UpdateAccuracyTextMesh(int index, string text)
     {
         if (AccuracyTextMeshes.TryGetValue(index, out var textMesh))
         {
@@ -177,24 +176,23 @@ public class AccuracyUpdater : MonoBehaviour
 
     internal static void MarkAllAccuracyDataNeedUpdate()
     {
-        foreach (var lookup in AccuracyDataNeedUpdate.Keys.ToList())
+        foreach (var data in AccuracyDataLookup.Values)
         {
-            AccuracyDataNeedUpdate[lookup] = true;
+            data.NeedUpdate = true;
         }
     }
 
     internal static void MarkAccuracyDataNeedUpdate(ulong lookup)
     {
-        AccuracyDataNeedUpdate[lookup] = true;
+        AccuracyDataLookup[lookup].NeedUpdate = true;
     }
 
     internal static void DoClear()
     {
-        foreach (var lookup in AccuracyDataLookup.Keys.ToList())
+        foreach (var data in AccuracyDataLookup.Values)
         {
-            var data = AccuracyDataLookup[lookup];
             data.DoClear();
-            AccuracyDataNeedUpdate[lookup] = true;
+            data.NeedUpdate = true;
         }
     }
 
@@ -251,7 +249,6 @@ public class AccuracyUpdater : MonoBehaviour
             SetVisible(index, false);
         }
         AccuracyDataLookup.Remove(lookup);
-        AccuracyDataNeedUpdate.Remove(lookup);
         AccuracyRegisteredCharacterIndex.Remove(lookup);
     }
 
@@ -442,7 +439,6 @@ public class AccuracyUpdater : MonoBehaviour
 
     private static Dictionary<int, TextMeshPro> AccuracyTextMeshes { get; set; } = new();
     private static Dictionary<ulong, AccuracyData> AccuracyDataLookup { get; set; } = new();
-    private static Dictionary<ulong, bool> AccuracyDataNeedUpdate { get; set; } = new();
     private static Dictionary<int, bool> AccuracyTextMeshesVisible { get; set; } = new();
     private static Dictionary<ulong, int> AccuracyRegisteredCharacterIndex { get; set; } = new();
     private static Dictionary<ulong, Coroutine> RegisterPlayerCoroutines = new();
@@ -452,21 +448,21 @@ public class AccuracyUpdater : MonoBehaviour
         internal AccuracyData(SNet_Player player)
         {
             Owner = player;
-            m_SlotDataLookup[InventorySlot.GearStandard] = new();
-            m_SlotDataLookup[InventorySlot.GearSpecial] = new();
+            AccuracySlotDataLookup[InventorySlot.GearStandard] = new(InventorySlot.GearStandard);
+            AccuracySlotDataLookup[InventorySlot.GearSpecial] = new(InventorySlot.GearSpecial);
         }
 
         internal void Set(pAccuracyData data)
         {
-            data.Owner.TryGetPlayer(out var player);
-            Owner = player;
-            m_SlotDataLookup[InventorySlot.GearStandard].Set(data.StandardSlotData);
-            m_SlotDataLookup[InventorySlot.GearSpecial].Set(data.SpecialSlotData);
+            if (data.Owner.TryGetPlayer(out var player))
+                Owner = player;
+            AccuracySlotDataLookup[InventorySlot.GearStandard].Set(data.StandardSlotData);
+            AccuracySlotDataLookup[InventorySlot.GearSpecial].Set(data.SpecialSlotData);
         }
 
         internal void AddShotted(InventorySlot slot, uint count)
         {
-            if (m_SlotDataLookup.TryGetValue(slot, out var data))
+            if (AccuracySlotDataLookup.TryGetValue(slot, out var data))
             {
                 data.m_Shotted += count;
             }
@@ -474,7 +470,7 @@ public class AccuracyUpdater : MonoBehaviour
 
         internal void AddHitted(InventorySlot slot, uint count)
         {
-            if (m_SlotDataLookup.TryGetValue(slot, out var data))
+            if (AccuracySlotDataLookup.TryGetValue(slot, out var data))
             {
                 data.m_Hitted += count;
             }
@@ -482,7 +478,7 @@ public class AccuracyUpdater : MonoBehaviour
 
         internal void AddWeakspotHitted(InventorySlot slot, uint count)
         {
-            if (m_SlotDataLookup.TryGetValue(slot, out var data))
+            if (AccuracySlotDataLookup.TryGetValue(slot, out var data))
             {
                 data.m_WeakspotHitted += count;
             }
@@ -490,7 +486,7 @@ public class AccuracyUpdater : MonoBehaviour
 
         internal void DoClear()
         {
-            foreach (var data in m_SlotDataLookup.Values)
+            foreach (var data in AccuracySlotDataLookup.Values)
             {
                 data.DoClear();
             }
@@ -502,9 +498,9 @@ public class AccuracyUpdater : MonoBehaviour
             get
             {
                 var count = 0U;
-                foreach (var slot in m_SlotDataLookup.Keys)
+                foreach (var slot in AccuracySlotDataLookup.Keys)
                 {
-                    count += m_SlotDataLookup[slot].m_Hitted;
+                    count += AccuracySlotDataLookup[slot].m_Hitted;
                 }
                 return count;
             }
@@ -514,9 +510,9 @@ public class AccuracyUpdater : MonoBehaviour
             get
             {
                 var count = 0U;
-                foreach (var slot in m_SlotDataLookup.Keys)
+                foreach (var slot in AccuracySlotDataLookup.Keys)
                 {
-                    count += m_SlotDataLookup[slot].m_WeakspotHitted;
+                    count += AccuracySlotDataLookup[slot].m_WeakspotHitted;
                 }
                 return count;
             }
@@ -526,15 +522,16 @@ public class AccuracyUpdater : MonoBehaviour
             get
             {
                 var count = 0U;
-                foreach (var slot in m_SlotDataLookup.Keys)
+                foreach (var slot in AccuracySlotDataLookup.Keys)
                 {
-                    count += m_SlotDataLookup[slot].m_Shotted;
+                    count += AccuracySlotDataLookup[slot].m_Shotted;
                 }
                 return count;
             }
         }
 
-        private Dictionary<InventorySlot, AccuracySlotData> m_SlotDataLookup = new();
+        internal bool NeedUpdate = true;
+        private Dictionary<InventorySlot, AccuracySlotData> AccuracySlotDataLookup = new();
 
         public string GetAccuracyText()
         {
@@ -556,7 +553,7 @@ public class AccuracyUpdater : MonoBehaviour
 
         public string GetAccuracyText(InventorySlot slot)
         {
-            if (!Owner.HasCharacterSlot || !m_SlotDataLookup.TryGetValue(slot, out var data))
+            if (!Owner.HasCharacterSlot || !AccuracySlotDataLookup.TryGetValue(slot, out var data))
             {
                 return string.Format(Settings.ShowFormat, "-", "-", "-", 0, 0, 0);
             }
@@ -573,11 +570,16 @@ public class AccuracyUpdater : MonoBehaviour
 
         public pAccuracyData GetAccuracyData()
         {
-            return new(Owner, m_SlotDataLookup);
+            return new(Owner, AccuracySlotDataLookup);
         }
 
         internal class AccuracySlotData
         {
+            public AccuracySlotData(InventorySlot slot)
+            {
+                m_Slot = slot;
+            }
+
             internal void Set(pAccuracySlotData data)
             {
                 m_Hitted = data.Hitted;
