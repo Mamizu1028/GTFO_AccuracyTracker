@@ -31,6 +31,9 @@ public class AccuracyTracker : Feature
         [FSDisplayName("启用")]
         public bool Enabled { get => AccuracyUpdater.Enabled; set => AccuracyUpdater.Enabled = value; }
 
+        [FSDisplayName("在结算界面显示")]
+        public bool DisplayOnEndScreen { get; set; } = true;
+
         [FSDisplayName("显示其他玩家的命中率")]
         public bool ShowOtherPlayersAcc { get => AccuracyUpdater.ShowOtherPlayersAcc; set => AccuracyUpdater.ShowOtherPlayersAcc = value; }
 
@@ -186,7 +189,7 @@ public class AccuracyTracker : Feature
     {
         private static void Postfix(PlayerBackpack backpack, InventorySlot slot, ref string name)
         {
-            if (slot != InventorySlot.GearStandard && slot != InventorySlot.GearSpecial)
+            if (slot != InventorySlot.GearStandard && slot != InventorySlot.GearSpecial || !Settings.DisplayOnEndScreen)
                 return;
             if (AccuracyUpdater.TryGetPlayerAccuracyData(backpack.Owner, out var data))
             {
