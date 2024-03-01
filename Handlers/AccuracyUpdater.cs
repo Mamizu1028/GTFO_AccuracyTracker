@@ -555,13 +555,15 @@ public class AccuracyUpdater : MonoBehaviour
         {
             if (!Owner.HasCharacterSlot)
             {
-                return string.Format(Settings.DisplayFormatInGame, "-", $"<{Settings.FontColors.HittedRatioColor.ToHexString()}>-%</color>", $"<{Settings.FontColors.WeakspotHittedRatioColor.ToHexString()}>-%</color>", $"<{Settings.FontColors.HittedColor.ToHexString()}>0</color>", $"<{Settings.FontColors.WeakspotHittedColor.ToHexString()}>0</color>", $"<{Settings.FontColors.ShottedColor.ToHexString()}>0</color>");
+                var result = string.Format(Settings.DisplayFormatInGame, "-", $"<{Settings.FontColors.HittedRatioColor.ToHexString()}>-%</color>", $"<{Settings.FontColors.WeakspotHittedRatioColor.ToHexString()}>-%</color>", $"<{Settings.FontColors.HittedColor.ToHexString()}>0</color>", $"<{Settings.FontColors.WeakspotHittedColor.ToHexString()}>0</color>", $"<{Settings.FontColors.ShottedColor.ToHexString()}>0</color>");
+                return Settings.FontColors.EnableColorInGame ? result : string.Format(Settings.DisplayFormatInGame, "*-", "-%", "-%", 0, 0, 0);
             }
             string prefix = IsAccuracyListener(Owner.Lookup) || (IsMasterHasAcc && Owner.IsBot) || Owner.IsLocal ? "": "*";
             string playerName = UseGenericName ? CharacterNamesLookup[Owner.CharacterIndex].Name : Owner.NickName.RemoveHtmlTags();
             if (TotalShotted == 0)
             {
-                return $"{prefix}{string.Format(Settings.DisplayFormatInGame, playerName, $"<{Settings.FontColors.HittedRatioColor.ToHexString()}>-%</color>", $"<{Settings.FontColors.WeakspotHittedRatioColor.ToHexString()}>-%</color>", $"<{Settings.FontColors.HittedColor.ToHexString()}>0</color>", $"<{Settings.FontColors.WeakspotHittedColor.ToHexString()}>0</color>", $"<{Settings.FontColors.ShottedColor.ToHexString()}>0</color>")}";
+                var result = $"{prefix}{string.Format(Settings.DisplayFormatInGame, playerName, $"<{Settings.FontColors.HittedRatioColor.ToHexString()}>-%</color>", $"<{Settings.FontColors.WeakspotHittedRatioColor.ToHexString()}>-%</color>", $"<{Settings.FontColors.HittedColor.ToHexString()}>0</color>", $"<{Settings.FontColors.WeakspotHittedColor.ToHexString()}>0</color>", $"<{Settings.FontColors.ShottedColor.ToHexString()}>0</color>")}";
+                return Settings.FontColors.EnableColorInGame ? result : $"{prefix}{string.Format(Settings.DisplayFormatInGame, playerName, "-%", "-%", 0, 0, 0)}";
             }
             else
             {
@@ -579,7 +581,8 @@ public class AccuracyUpdater : MonoBehaviour
             string prefix = IsAccuracyListener(Owner.Lookup) || (IsMasterHasAcc && Owner.IsBot) || Owner.IsLocal ? "" : "*";
             if (data.m_Shotted == 0)
             {
-                return $"{prefix}{string.Format(Settings.DisplayFormatOnEndScreen, $"<{Settings.FontColors.HittedRatioColor.ToHexString()}>-%</color>", $"<{Settings.FontColors.WeakspotHittedRatioColor.ToHexString()}>-%</color>", $"<{Settings.FontColors.HittedColor.ToHexString()}>0</color>", $"<{Settings.FontColors.WeakspotHittedColor.ToHexString()}>0</color>", $"<{Settings.FontColors.ShottedColor.ToHexString()}>0</color>")}";
+                var result = $"{prefix}{string.Format(Settings.DisplayFormatOnEndScreen, $"<{Settings.FontColors.HittedRatioColor.ToHexString()}>-%</color>", $"<{Settings.FontColors.WeakspotHittedRatioColor.ToHexString()}>-%</color>", $"<{Settings.FontColors.HittedColor.ToHexString()}>0</color>", $"<{Settings.FontColors.WeakspotHittedColor.ToHexString()}>0</color>", $"<{Settings.FontColors.ShottedColor.ToHexString()}>0</color>")}";
+                return Settings.FontColors.EnableColorOnEndScreen ? result : $"{prefix}{string.Format(Settings.DisplayFormatOnEndScreen, "-%", "-%", 0, 0, 0)}";
             }
             else
             {
