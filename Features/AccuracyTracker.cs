@@ -39,7 +39,11 @@ public class AccuracyTracker : Feature
 
         [FSDisplayName("显示格式")]
         [FSDescription("{0}: 玩家名称, {1}: 命中率, {2}: 弱点命中率, {3}: 弱点命中次数, {4}: 命中次数, {5}: 弹丸击发次数")]
-        public string ShowFormat { get => AccuracyUpdater.ShowFormat; set => AccuracyUpdater.ShowFormat = value; }
+        public string DisplayFormatInGame { get => AccuracyUpdater.ShowFormat; set => AccuracyUpdater.ShowFormat = value; }
+
+        [FSDisplayName("结算界面显示格式")]
+        [FSDescription("{0}: 命中率, {1}: 弱点命中率, {2}: 弱点命中次数, {3}: 命中次数, {4}: 弹丸击发次数")]
+        public string DisplayFormatOnEndScreen { get => AccuracyUpdater.PageExpeditionSuccessShowFormat; set => AccuracyUpdater.PageExpeditionSuccessShowFormat = value; }
 
         [FSHeader("玩家显示名称设置")]
         [FSDisplayName("使用通用玩家名称")]
@@ -47,12 +51,10 @@ public class AccuracyTracker : Feature
         public bool UseGenericName { get => AccuracyUpdater.UseGenericName; set => AccuracyUpdater.UseGenericName = value; }
 
         [FSInline]
-        [FSHeader("显示位置设置")]
         [FSDisplayName("显示位置设置")]
         public PositionSettings Position { get; set; } = new();
 
         [FSInline]
-        [FSHeader("显示位置设置")]
         [FSDisplayName("显示颜色设置")]
         public ColorSettings FontColors { get; set; } = new();
     }
@@ -91,6 +93,7 @@ public class AccuracyTracker : Feature
 
     public class PositionSettings
     {
+        [FSHeader("显示位置设置")]
         [FSDisplayName("横向偏移量")]
         [FSDescription("单位: 像素")]
         public int OffsetX
@@ -122,6 +125,11 @@ public class AccuracyTracker : Feature
 
     public class ColorSettings
     {
+        [FSHeader("显示颜色设置")]
+        [FSDisplayName("在游戏内使用颜色")]
+        public bool EnableColorInGame { get; set; } = true;
+        [FSDisplayName("在结算界面使用颜色")]
+        public bool EnableColorOnEndScreen { get; set; } = false;
         [FSDisplayName("命中率颜色")]
         public SColor HittedRatioColor { get; set; } = new(0.7206f, 0.7206f, 0.7206f, 0.3137f);
         [FSDisplayName("命中次数颜色")]

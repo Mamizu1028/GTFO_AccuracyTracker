@@ -1,10 +1,8 @@
 ﻿using GTFO.API;
-using Il2CppInterop.Runtime.Attributes;
 using Player;
 using SNetwork;
 using static Hikaria.AccuracyTracker.Features.AccuracyTracker;
 using static Hikaria.AccuracyTracker.Handlers.AccuracyUpdater;
-using static UnityEngine.UI.GridLayoutGroup;
 
 namespace Hikaria.AccuracyTracker.Managers;
 

@@ -386,6 +386,24 @@ public class AccuracyUpdater : MonoBehaviour
 
     private static string _showFormat = "{0}: {1}/{2}({4}/{5})";
 
+    public static string PageExpeditionSuccessShowFormat
+    {
+        get
+        {
+            return _pageExpeditionSuccessShowFormat;
+        }
+        set
+        {
+            if (IsSetup)
+            {
+                MarkAllAccuracyDataNeedUpdate();
+            }
+            _pageExpeditionSuccessShowFormat = value;
+        }
+    }
+
+    private static string _pageExpeditionSuccessShowFormat = "{0}/{1}({2}/{3}/{4})";
+
     public static bool UseGenericName
     {
         get
@@ -537,17 +555,18 @@ public class AccuracyUpdater : MonoBehaviour
         {
             if (!Owner.HasCharacterSlot)
             {
-                return string.Format(Settings.ShowFormat, "-", "-", "-", 0, 0, 0);
+                return string.Format(Settings.DisplayFormatInGame, "-", $"<{Settings.FontColors.HittedRatioColor.ToHexString()}>-%</color>", $"<{Settings.FontColors.WeakspotHittedRatioColor.ToHexString()}>-%</color>", $"<{Settings.FontColors.HittedColor.ToHexString()}>0</color>", $"<{Settings.FontColors.WeakspotHittedColor.ToHexString()}>0</color>", $"<{Settings.FontColors.ShottedColor.ToHexString()}>0</color>");
             }
             string prefix = IsAccuracyListener(Owner.Lookup) || (IsMasterHasAcc && Owner.IsBot) || Owner.IsLocal ? "": "*";
             string playerName = UseGenericName ? CharacterNamesLookup[Owner.CharacterIndex].Name : Owner.NickName.RemoveHtmlTags();
             if (TotalShotted == 0)
             {
-                return $"{prefix}{string.Format(Settings.ShowFormat, playerName, "-%", "-%", 0, 0, 0)}";
+                return $"{prefix}{string.Format(Settings.DisplayFormatInGame, playerName, $"<{Settings.FontColors.HittedRatioColor.ToHexString()}>-%</color>", $"<{Settings.FontColors.WeakspotHittedRatioColor.ToHexString()}>-%</color>", $"<{Settings.FontColors.HittedColor.ToHexString()}>0</color>", $"<{Settings.FontColors.WeakspotHittedColor.ToHexString()}>0</color>", $"<{Settings.FontColors.ShottedColor.ToHexString()}>0</color>")}";
             }
             else
             {
-                return $"{prefix}{string.Format(Settings.ShowFormat, playerName, $"<{Settings.FontColors.HittedRatioColor.ToHexString()}>{(int)(100 * TotalHitted / TotalShotted)}%</color>", TotalHitted == 0 ? "-" : $"<{Settings.FontColors.WeakspotHittedRatioColor.ToHexString()}>{(int)(100 * TotalWeakspotHitted / TotalHitted)}%</color>", $"<{Settings.FontColors.WeakspotHittedColor.ToHexString()}>{TotalWeakspotHitted}</color>", $"<{Settings.FontColors.HittedColor.ToHexString()}>{TotalHitted}</color>", $"<{Settings.FontColors.ShottedColor.ToHexString()}>{TotalShotted}</color>")}";
+                var result = $"{prefix}{string.Format(Settings.DisplayFormatInGame, playerName, $"<{Settings.FontColors.HittedRatioColor.ToHexString()}>{(int)(100 * TotalHitted / TotalShotted)}%</color>", TotalHitted == 0 ? "-" : $"<{Settings.FontColors.WeakspotHittedRatioColor.ToHexString()}>{(int)(100 * TotalWeakspotHitted / TotalHitted)}%</color>", $"<{Settings.FontColors.WeakspotHittedColor.ToHexString()}>{TotalWeakspotHitted}</color>", $"<{Settings.FontColors.HittedColor.ToHexString()}>{TotalHitted}</color>", $"<{Settings.FontColors.ShottedColor.ToHexString()}>{TotalShotted}</color>")}";
+                return Settings.FontColors.EnableColorInGame ? result : $"{prefix}{string.Format(Settings.DisplayFormatInGame, playerName, $"{(int)(100 * TotalHitted / TotalShotted)}%", TotalHitted == 0 ? "-" : $"{(int)(100 * TotalWeakspotHitted / TotalHitted)}%", $"{TotalWeakspotHitted}", $"{TotalHitted}", $"{TotalShotted}")}";
             }
         }
 
@@ -555,16 +574,17 @@ public class AccuracyUpdater : MonoBehaviour
         {
             if (!Owner.HasCharacterSlot || !AccuracySlotDataLookup.TryGetValue(slot, out var data))
             {
-                return string.Format(Settings.ShowFormat, "-", "-", "-", 0, 0, 0);
+                return string.Format(Settings.DisplayFormatOnEndScreen, $"<{Settings.FontColors.HittedRatioColor.ToHexString()}>-%</color>", $"<{Settings.FontColors.WeakspotHittedRatioColor.ToHexString()}>-%</color>", $"<{Settings.FontColors.HittedColor.ToHexString()}>0</color>", $"<{Settings.FontColors.WeakspotHittedColor.ToHexString()}>0</color>", $"<{Settings.FontColors.ShottedColor.ToHexString()}>0</color>");
             }
             string prefix = IsAccuracyListener(Owner.Lookup) || (IsMasterHasAcc && Owner.IsBot) || Owner.IsLocal ? "" : "*";
             if (data.m_Shotted == 0)
             {
-                return $"{prefix}{string.Format("{0}/{1}({2}/{3}/{4})", "-%", "-%", 0, 0, 0)}";
+                return $"{prefix}{string.Format(Settings.DisplayFormatOnEndScreen, $"<{Settings.FontColors.HittedRatioColor.ToHexString()}>-%</color>", $"<{Settings.FontColors.WeakspotHittedRatioColor.ToHexString()}>-%</color>", $"<{Settings.FontColors.HittedColor.ToHexString()}>0</color>", $"<{Settings.FontColors.WeakspotHittedColor.ToHexString()}>0</color>", $"<{Settings.FontColors.ShottedColor.ToHexString()}>0</color>")}";
             }
             else
             {
-                return $"{prefix}{string.Format("{0}/{1}({2}/{3}/{4})", $"{(int)(100 * data.m_Hitted / data.m_Shotted)}%", TotalHitted == 0 ? "-" : $"{(int)(100 * data.m_WeakspotHitted / data.m_Hitted)}%", $"{data.m_WeakspotHitted}", $"{data.m_Hitted}", $"{data.m_Shotted}")}";
+                var result = $"{prefix}{string.Format(Settings.DisplayFormatOnEndScreen, $"<{Settings.FontColors.HittedRatioColor.ToHexString()}>{(int)(100 * data.m_Hitted / data.m_Shotted)}%</color>", data.m_Hitted == 0 ? "-" : $"<{Settings.FontColors.WeakspotHittedRatioColor.ToHexString()}>{(int)(100 * data.m_WeakspotHitted / data.m_Hitted)}%</color>", $"<{Settings.FontColors.WeakspotHittedColor.ToHexString()}>{data.m_WeakspotHitted}</color>", $"<{Settings.FontColors.HittedColor.ToHexString()}>{data.m_Hitted}</color>", $"<{Settings.FontColors.ShottedColor.ToHexString()}>{data.m_Shotted}</color>")}";
+                return Settings.FontColors.EnableColorOnEndScreen ? result : $"{prefix}{string.Format(Settings.DisplayFormatOnEndScreen, $"{(int)(100 * data.m_Hitted / data.m_Shotted)}%", data.m_Hitted == 0 ? "-" : $"{(int)(100 * data.m_WeakspotHitted / data.m_Hitted)}%", data.m_WeakspotHitted, data.m_Hitted, data.m_Shotted)}"; ;
             }
         }
 
