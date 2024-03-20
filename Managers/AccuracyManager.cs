@@ -77,7 +77,7 @@ public static class AccuracyManager
         return AccuracyDataListeners.ContainsKey(lookup);
     }
 
-    public static bool IsMasterHasAcc => AccuracyDataListeners.Any(p => p.Key == SNet.Master.Lookup);
+    public static bool IsMasterHasAcc => SNet.Master == null ? false : AccuracyDataListeners.Any(p => p.Key == SNet.Master.Lookup);
 
     private static Dictionary<ulong, SNet_Player> AccuracyDataListeners { get; set; } = new();
 

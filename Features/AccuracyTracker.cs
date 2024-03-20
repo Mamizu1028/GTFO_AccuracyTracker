@@ -163,7 +163,7 @@ public class AccuracyTracker : Feature
     }
     #endregion
 
-    #region SetupAccuracyShower
+    #region SetupAccurayTracker
     public static bool IsSetup { get; private set; }
 
     [ArchivePatch(typeof(CM_PageRundown_New), nameof(CM_PageRundown_New.Setup))]
@@ -173,7 +173,7 @@ public class AccuracyTracker : Feature
         {
             if (!IsSetup)
             {
-                GameObject gameObject = new("AccurayShower");
+                GameObject gameObject = new("AccurayTracker");
                 UnityEngine.Object.DontDestroyOnLoad(gameObject);
                 if (gameObject.GetComponent<AccuracyUpdater>() == null)
                 {
