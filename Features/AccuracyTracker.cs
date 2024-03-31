@@ -584,7 +584,7 @@ public class AccuracyTracker : Feature
     {
         private static void Postfix(Dam_EnemyDamageLimb __instance, Agent sourceAgent)
         {
-            if (!CanCalc || sourceAgent == null)
+            if (!CanCalc || !BulletWeapon__BulletHit__Patch.CanCalcHitted || sourceAgent == null)
             {
                 return;
             }
@@ -602,7 +602,7 @@ public class AccuracyTracker : Feature
     [ArchivePatch(typeof(BulletWeapon), nameof(BulletWeapon.BulletHit))]
     private class BulletWeapon__BulletHit__Patch
     {
-        private static bool CanCalcHitted;
+        public static bool CanCalcHitted;
         private static void Postfix(bool __result)
         {
             if (!IsInWeaponFire || IsSentryGunFire || !CanCalc)
