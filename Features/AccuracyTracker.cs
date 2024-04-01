@@ -408,6 +408,8 @@ public class AccuracyTracker : Feature
 
     private static uint HitCount;
 
+    private static uint WeakspotHitCount;
+
     private static int BulletPiercingLimit;
 
     private static int BulletsCountPerFire;
@@ -514,6 +516,7 @@ public class AccuracyTracker : Feature
             IsPiercingBullet = false;
             BulletPiercingLimit = 1;
             HitCount = 0;
+            WeakspotHitCount = 0;
             BulletHitCalledCount = 0;
             BulletsCountPerFire = 1;
             var data = __instance.ArchetypeData;
@@ -535,6 +538,7 @@ public class AccuracyTracker : Feature
             var player = __instance.Owner.Owner;
             AccuracyUpdater.AddShotted(player.Lookup, __instance.ItemDataBlock.inventorySlot, (uint)BulletsCountPerFire);
             AccuracyUpdater.AddHitted(player.Lookup, __instance.ItemDataBlock.inventorySlot, HitCount);
+            AccuracyUpdater.AddWeakspotHitted(player.Lookup, __instance.ItemDataBlock.inventorySlot, WeakspotHitCount);
             AccuracyUpdater.MarkAccuracyDataNeedUpdate(player.Lookup);
         }
     }
@@ -553,6 +557,7 @@ public class AccuracyTracker : Feature
             IsPiercingBullet = false;
             BulletPiercingLimit = 1;
             HitCount = 0;
+            WeakspotHitCount = 0;
             BulletHitCalledCount = 0;
             BulletsCountPerFire = 1;
             var data = __instance.ArchetypeData;
@@ -575,6 +580,7 @@ public class AccuracyTracker : Feature
             var player = __instance.Owner.Owner;
             AccuracyUpdater.AddShotted(player.Lookup, __instance.ItemDataBlock.inventorySlot, (uint)BulletsCountPerFire);
             AccuracyUpdater.AddHitted(player.Lookup, __instance.ItemDataBlock.inventorySlot, HitCount);
+            AccuracyUpdater.AddWeakspotHitted(player.Lookup, __instance.ItemDataBlock.inventorySlot, WeakspotHitCount);
             AccuracyUpdater.MarkAccuracyDataNeedUpdate(player.Lookup);
         }
     }
@@ -584,14 +590,14 @@ public class AccuracyTracker : Feature
     {
         private static void Postfix(Dam_EnemyDamageLimb __instance, Agent sourceAgent)
         {
-            if (!CanCalc || !BulletWeapon__BulletHit__Patch.CanCalcHitted || sourceAgent == null)
+            if (!IsInWeaponFire || IsSentryGunFire || !CanCalc || sourceAgent == null)
             {
                 return;
             }
             var playerAgent = sourceAgent.TryCast<PlayerAgent>();
-            if (playerAgent != null && __instance.m_type == eLimbDamageType.Weakspot)
+            if (playerAgent != null && playerAgent.IsLocallyOwned)
             {
-                AccuracyUpdater.AddWeakspotHitted(playerAgent.Owner.Lookup, playerAgent.Inventory.WieldedSlot, 1);
+                BulletWeapon__BulletHit__Patch.WeakspotHitted = __instance.m_type == eLimbDamageType.Weakspot;
             }
         }
     }
@@ -602,7 +608,10 @@ public class AccuracyTracker : Feature
     [ArchivePatch(typeof(BulletWeapon), nameof(BulletWeapon.BulletHit))]
     private class BulletWeapon__BulletHit__Patch
     {
-        public static bool CanCalcHitted;
+        public static bool WeakspotHitted;
+        private static bool CanCalcHitted;
+        private static bool CanCalcWeakspotHitted;
+        private static bool PiercingRoundCalced;
         private static void Postfix(bool __result)
         {
             if (!IsInWeaponFire || IsSentryGunFire || !CanCalc)
@@ -613,22 +622,33 @@ public class AccuracyTracker : Feature
             {
                 return;
             }
-            if (IsPiercingBullet)
-            {
-                if (BulletHitCalledCount % BulletPiercingLimit == 0)
-                {
-                    CanCalcHitted = true;
-                }
-            }
-            else
+            if (!IsPiercingBullet)
             {
                 CanCalcHitted = true;
+                CanCalcWeakspotHitted = true;
+            }
+            else if (BulletHitCalledCount % BulletPiercingLimit == 0)
+            {
+                CanCalcHitted = true;
+                CanCalcWeakspotHitted = true;
             }
             BulletHitCalledCount++;
-            if (__result && CanCalcHitted)
+            if (!__result)
+            {
+                return;
+            }
+            if (CanCalcHitted)
             {
                 HitCount++;
                 CanCalcHitted = false;
+            }
+            if (CanCalcWeakspotHitted)
+            {
+                if (WeakspotHitted)
+                {
+                    WeakspotHitCount++;
+                    CanCalcWeakspotHitted = false;
+                }
             }
         }
     }
