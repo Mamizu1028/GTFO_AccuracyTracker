@@ -595,7 +595,7 @@ public class AccuracyTracker : Feature
                 return;
             }
             var playerAgent = sourceAgent.TryCast<PlayerAgent>();
-            if (playerAgent != null && playerAgent.IsLocallyOwned)
+            if (playerAgent?.IsLocallyOwned ?? false)
             {
                 BulletWeapon__BulletHit__Patch.WeakspotHitted = __instance.m_type == eLimbDamageType.Weakspot;
             }
@@ -611,14 +611,13 @@ public class AccuracyTracker : Feature
         public static bool WeakspotHitted;
         private static bool CanCalcHitted;
         private static bool CanCalcWeakspotHitted;
-        private static bool PiercingRoundCalced;
         private static void Postfix(bool __result)
         {
             if (!IsInWeaponFire || IsSentryGunFire || !CanCalc)
             {
                 return;
             }
-            if (BulletHitCalledCount >= BulletsCountPerFire)
+            if (BulletHitCalledCount >= (IsPiercingBullet ? BulletPiercingLimit : BulletsCountPerFire))
             {
                 return;
             }
