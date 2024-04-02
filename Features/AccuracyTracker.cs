@@ -617,7 +617,7 @@ public class AccuracyTracker : Feature
             {
                 return;
             }
-            if (BulletHitCalledCount >= (IsPiercingBullet ? BulletPiercingLimit : BulletsCountPerFire))
+            if (!__result)
             {
                 return;
             }
@@ -632,10 +632,6 @@ public class AccuracyTracker : Feature
                 CanCalcWeakspotHitted = true;
             }
             BulletHitCalledCount++;
-            if (!__result)
-            {
-                return;
-            }
             if (CanCalcHitted)
             {
                 HitCount++;
