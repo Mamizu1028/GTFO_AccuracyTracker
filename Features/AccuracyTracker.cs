@@ -50,7 +50,7 @@ public class AccuracyTracker : Feature
 
         [FSHeader("玩家显示名称设置")]
         [FSDisplayName("使用通用玩家名称")]
-        [FSDescription("若此项为 False, 则使用玩家名称")]
+        [FSDescription("若禁用则使用玩家名称")]
         public bool UseGenericName { get => AccuracyUpdater.UseGenericName; set => AccuracyUpdater.UseGenericName = value; }
 
         [FSInline]
@@ -597,6 +597,7 @@ public class AccuracyTracker : Feature
             var playerAgent = sourceAgent.TryCast<PlayerAgent>();
             if (playerAgent?.IsLocallyOwned ?? false)
             {
+                BulletWeapon__BulletHit__Patch.EnemyBulletDamageCalled = true;
                 BulletWeapon__BulletHit__Patch.WeakspotHitted = __instance.m_type == eLimbDamageType.Weakspot;
             }
         }
@@ -608,6 +609,7 @@ public class AccuracyTracker : Feature
     [ArchivePatch(typeof(BulletWeapon), nameof(BulletWeapon.BulletHit))]
     private class BulletWeapon__BulletHit__Patch
     {
+        public static bool EnemyBulletDamageCalled;
         public static bool WeakspotHitted;
         private static bool CanCalcHitted;
         private static bool CanCalcWeakspotHitted;
@@ -619,6 +621,7 @@ public class AccuracyTracker : Feature
             }
             if (!__result)
             {
+                EnemyBulletDamageCalled = false;
                 return;
             }
             if (!IsPiercingBullet)
@@ -637,7 +640,7 @@ public class AccuracyTracker : Feature
                 HitCount++;
                 CanCalcHitted = false;
             }
-            if (CanCalcWeakspotHitted)
+            if (CanCalcWeakspotHitted && EnemyBulletDamageCalled)
             {
                 if (WeakspotHitted)
                 {
@@ -645,6 +648,7 @@ public class AccuracyTracker : Feature
                     CanCalcWeakspotHitted = false;
                 }
             }
+            EnemyBulletDamageCalled = false;
         }
     }
     #endregion
