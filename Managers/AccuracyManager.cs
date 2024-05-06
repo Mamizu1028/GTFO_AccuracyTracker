@@ -1,5 +1,4 @@
 ﻿using Hikaria.Core;
-using Hikaria.Core.Interfaces;
 using Hikaria.Core.SNetworkExt;
 using Player;
 using SNetwork;
@@ -9,23 +8,45 @@ namespace Hikaria.AccuracyTracker.Managers;
 
 public static class AccuracyManager
 {
-    static string eAccuracyDataName = typeof(pAccuracyData).FullName + "v2";
-    static string eBroadcastListenAccuracyName = typeof(pBroadcastListenAccuracyData).FullName + "v2";
-
     internal static void Setup()
     {
+        CoreAPI.OnPlayerModsSynced += OnPlayerModsSynced;
+        GameEventAPI.OnPlayerSlotChanged += OnPlayerSlotChanged;
         GameEventAPI.OnMasterChanged += OnMasterChanged;
-        GameEventAPI.OnSessionMemberChanged += OnSessionMemberChanged;
-        s_AccuracyDataPacket = SNetExt_Packet<pAccuracyData>.Create(eAccuracyDataName, ReceiveAccuracyData, null, false, SNet_ChannelType.GameNonCritical);
-        s_BroadcastrListenAccuracyDataPacket = SNetExt_Packet<pBroadcastListenAccuracyData>.Create(eBroadcastListenAccuracyName, ReceiveBroadcastListenAccuracyData, null, false, SNet_ChannelType.GameNonCritical);
+        s_AccuracyDataBroadcastAction = SNetExt_BroadcastAction<pAccuracyData>.Create($"{typeof(pAccuracyData).FullName}_v3", ReceiveAccuracyData, AccuracyDataListenerFilter, SNet_ChannelType.GameNonCritical);
+        s_AccuracyDataBroadcastAction.OnPlayerAddedToListeners += SyncToPlayer;
+        s_AccuracyDataBroadcastAction.OnPlayerRemovedFromListeners += UnregisterPlayer;
     }
 
-    private static void ReceiveBroadcastListenAccuracyData(ulong senderID, pBroadcastListenAccuracyData data)
+    private static void SyncToPlayer(SNet_Player player)
     {
-        if (SNet.Core.TryGetPlayer(senderID, out var player, true))
+        foreach (var data in AccuracyDataLookup.Values)
         {
-            AccuracyDataListeners[player.Lookup] = player;
-            MarkAllAccuracyDataNeedUpdate();
+            if (data.Owner.IsLocal || SNet.IsMaster)
+            {
+                s_AccuracyDataBroadcastAction.SyncToPlayer(player, data.GetAccuracyData());
+            }
+        }
+    }
+
+    private static void OnPlayerSlotChanged(SNet_Player player, SNet_SlotType type, SNet_SlotHandleType handle, int index)
+    {
+        if (handle == SNet_SlotHandleType.Assign || handle == SNet_SlotHandleType.Set)
+        {
+            RegisterPlayer(player);
+        }
+    }
+
+    private static bool AccuracyDataListenerFilter(SNet_Player player)
+    {
+        return CoreAPI.IsPlayerInstalledMod(player, PluginInfo.GUID, new("1.2.0"));
+    }
+
+    private static void OnPlayerModsSynced(SNet_Player player, IEnumerable<pModInfo> mods)
+    {
+        if (player.IsMaster)
+        {
+            IsMasterHasAcc = CoreAPI.IsPlayerInstalledMod(player, PluginInfo.GUID, new("1.2.0"));
         }
     }
 
@@ -39,60 +60,24 @@ public static class AccuracyManager
 
     internal static void SendAccuracyData(AccuracyData data)
     {
-        s_AccuracyDataPacket.Send(data.GetAccuracyData(), AccuracyDataListeners.Values.ToList());
-    }
-
-    internal static void BroadcastAccuracyDataListener()
-    {
-        s_BroadcastrListenAccuracyDataPacket.Send(default);
+        s_AccuracyDataBroadcastAction.Do(data.GetAccuracyData());
     }
 
     private static void OnMasterChanged()
     {
-        IsMasterHasAcc = CoreAPI.IsPlayerInstalledMod(SNet.Master, PluginInfo.GUID);
-    }
-
-    private static void OnSessionMemberChanged(SNet_Player player, SessionMemberEvent playerEvent)
-    {
-        if (playerEvent == SessionMemberEvent.JoinSessionHub)
-        {
-            if (player.IsLocal)
-            {
-                AccuracyDataListeners[player.Lookup] = player;
-            }
-            RegisterPlayer(player);
-        }
-        else if (playerEvent == SessionMemberEvent.LeftSessionHub)
-        {
-            if (player.IsLocal)
-            {
-                AccuracyDataListeners.Clear();
-                UnregisterAllPlayers();
-            }
-            else
-            {
-                AccuracyDataListeners.Remove(player.Lookup);
-                UnregisterPlayer(player.Lookup);
-            }
-
-        }
+        IsMasterHasAcc = CoreAPI.IsPlayerInstalledMod(SNet.Master, PluginInfo.GUID, new("1.2.0"));
     }
 
     public static bool IsAccuracyListener(ulong lookup)
     {
-        return AccuracyDataListeners.ContainsKey(lookup);
+        return s_AccuracyDataBroadcastAction.IsListener(lookup);
     }
 
-    public static bool IsMasterHasAcc;
+    public static bool IsMasterHasAcc { get; private set; }
 
-    private static Dictionary<ulong, SNet_Player> AccuracyDataListeners { get; set; } = new();
+    private static SNetExt_BroadcastAction<pAccuracyData> s_AccuracyDataBroadcastAction;
 
-    private static SNetExt_Packet<pAccuracyData> s_AccuracyDataPacket;
-    private static SNetExt_Packet<pBroadcastListenAccuracyData> s_BroadcastrListenAccuracyDataPacket;
-
-    private struct pBroadcastListenAccuracyData
-    {
-    }
+    public static Dictionary<ulong, AccuracyData> AccuracyDataLookup { get; private set; } = new();
 
     public struct pAccuracyData
     {

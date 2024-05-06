@@ -107,31 +107,23 @@ public class AccuracyUpdater : MonoBehaviour, IOnMasterChanged
 
     internal static void RegisterPlayer(SNet_Player player)
     {
-        if (RegisterPlayerCoroutines.ContainsKey(player.Lookup))
+        if (player.CharacterSlot != null)
         {
-            Instance.StopCoroutine(RegisterPlayerCoroutines[player.Lookup]);
+            AccuracyRegisteredCharacterIndex[player.Lookup] = player.CharacterSlot.index;
+            AccuracyDataLookup[player.Lookup] = new(player);
+            AccuracyDataLookup[player.Lookup].NeedUpdate = true;
         }
-        Instance.StartCoroutine(RegisterPlayerCoroutine(player));
     }
 
-    private static IEnumerator RegisterPlayerCoroutine(SNet_Player player)
+    internal static void UnregisterPlayer(SNet_Player player)
     {
-        var yielder = new WaitForSecondsRealtime(2f);
-        int timeout = 120;
-        while (timeout-- > 0)
+        if (player.IsLocal)
         {
-            if (player == null)
-            {
-                yield break;
-            }
-            if (player.HasCharacterSlot && player.CharacterIndex != -1)
-            {
-                AccuracyRegisteredCharacterIndex[player.Lookup] = player.CharacterIndex;
-                AccuracyDataLookup[player.Lookup] = new(player);
-                AccuracyDataLookup[player.Lookup].NeedUpdate = true;
-                yield break;
-            }
-            yield return yielder;
+            UnregisterAllPlayers();
+        }
+        else
+        {
+            UnregisterPlayer(player.Lookup);
         }
     }
 
@@ -468,11 +460,9 @@ public class AccuracyUpdater : MonoBehaviour, IOnMasterChanged
 
     private static bool _isSetup;
 
-    private static Dictionary<int, TextMeshPro> AccuracyTextMeshes { get; set; } = new();
-    private static Dictionary<ulong, AccuracyData> AccuracyDataLookup { get; set; } = new();
-    private static Dictionary<int, bool> AccuracyTextMeshesVisible { get; set; } = new();
-    private static Dictionary<ulong, int> AccuracyRegisteredCharacterIndex { get; set; } = new();
-    private static Dictionary<ulong, Coroutine> RegisterPlayerCoroutines = new();
+    private static Dictionary<int, TextMeshPro> AccuracyTextMeshes = new();
+    private static Dictionary<int, bool> AccuracyTextMeshesVisible = new();
+    private static Dictionary<ulong, int> AccuracyRegisteredCharacterIndex = new();
 
     public class AccuracyData
     {
