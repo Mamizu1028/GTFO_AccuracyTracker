@@ -1,5 +1,7 @@
 ﻿using BepInEx.Unity.IL2CPP.Utils;
 using Hikaria.AccuracyTracker.Extensions;
+using Hikaria.Core;
+using Hikaria.Core.Interfaces;
 using Player;
 using SNetwork;
 using System.Collections;
@@ -11,13 +13,19 @@ using static Hikaria.AccuracyTracker.Managers.AccuracyManager;
 
 namespace Hikaria.AccuracyTracker.Handlers;
 
-public class AccuracyUpdater : MonoBehaviour
+public class AccuracyUpdater : MonoBehaviour, IOnMasterChanged
 {
     private void Awake()
     {
         Instance = this;
         Setup();
+        GameEventAPI.RegisterSelf(this);
         this.StartCoroutine(UpdateAccuracyDataCoroutine());
+    }
+
+    private void OnDestroy()
+    {
+        GameEventAPI.UnregisterSelf(this);
     }
 
     private void Setup()
@@ -68,6 +76,11 @@ public class AccuracyUpdater : MonoBehaviour
         }
         MarkAllAccuracyDataNeedUpdate();
         IsSetup = true;
+    }
+
+    public void OnMasterChanged()
+    {
+        CheckAndSetVisible();
     }
 
     internal static void CheckAndSetVisible()

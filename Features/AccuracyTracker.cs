@@ -199,44 +199,6 @@ public class AccuracyTracker : Feature
     }
     #endregion
 
-    #region HookOnSessionMemberChanged
-    [ArchivePatch(typeof(SNet_GlobalManager), nameof(SNet_GlobalManager.Setup))]
-    private class SNet_GlobalManager__Setup__Patch
-    {
-        private static void Postfix()
-        {
-            SNet_Events.OnMasterChanged += new Action(OnMasterChanged);
-            SNet_Events.OnPlayerEvent += new Action<SNet_Player, SNet_PlayerEvent, SNet_PlayerEventReason>(OnPlayerEvent);
-        }
-    }
-
-    private static void OnPlayerEvent(SNet_Player player, SNet_PlayerEvent playerEvent, SNet_PlayerEventReason reason)
-    {
-        AccuracyManager.BroadcastAccuracyDataListener();
-        switch (playerEvent)
-        {
-            case SNet_PlayerEvent.PlayerLeftSessionHub:
-            case SNet_PlayerEvent.PlayerAgentDeSpawned:
-                AccuracyManager.OnSessionMemberChanged(player, SessionMemberEvent.LeftSessionHub);
-                break;
-            case SNet_PlayerEvent.PlayerAgentSpawned:
-                AccuracyManager.OnSessionMemberChanged(player, SessionMemberEvent.JoinSessionHub);
-                break;
-        }
-    }
-
-    private static void OnMasterChanged()
-    {
-        AccuracyUpdater.CheckAndSetVisible();
-    }
-
-    public enum SessionMemberEvent
-    {
-        JoinSessionHub,
-        LeftSessionHub
-    }
-    #endregion
-
     #region FetchSentryFire
 
     // 只有主机才需要获取炮台是否开火

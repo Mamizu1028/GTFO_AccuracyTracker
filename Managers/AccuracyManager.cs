@@ -1,7 +1,8 @@
-﻿using GTFO.API;
+﻿using Hikaria.Core;
+using Hikaria.Core.Interfaces;
+using Hikaria.Core.SNetworkExt;
 using Player;
 using SNetwork;
-using static Hikaria.AccuracyTracker.Features.AccuracyTracker;
 using static Hikaria.AccuracyTracker.Handlers.AccuracyUpdater;
 
 namespace Hikaria.AccuracyTracker.Managers;
@@ -13,8 +14,10 @@ public static class AccuracyManager
 
     internal static void Setup()
     {
-        NetworkAPI.RegisterEvent<pAccuracyData>(eAccuracyDataName, ReceiveAccuracyData);
-        NetworkAPI.RegisterEvent<pBroadcastListenAccuracyData>(eBroadcastListenAccuracyName, ReceiveBroadcastListenAccuracyData);
+        GameEventAPI.OnMasterChanged += OnMasterChanged;
+        GameEventAPI.OnSessionMemberChanged += OnSessionMemberChanged;
+        s_AccuracyDataPacket = SNetExt_Packet<pAccuracyData>.Create(eAccuracyDataName, ReceiveAccuracyData, null, false, SNet_ChannelType.GameNonCritical);
+        s_BroadcastrListenAccuracyDataPacket = SNetExt_Packet<pBroadcastListenAccuracyData>.Create(eBroadcastListenAccuracyName, ReceiveBroadcastListenAccuracyData, null, false, SNet_ChannelType.GameNonCritical);
     }
 
     private static void ReceiveBroadcastListenAccuracyData(ulong senderID, pBroadcastListenAccuracyData data)
@@ -36,17 +39,20 @@ public static class AccuracyManager
 
     internal static void SendAccuracyData(AccuracyData data)
     {
-        NetworkAPI.InvokeEvent(eAccuracyDataName, data.GetAccuracyData(), AccuracyDataListeners.Values.ToList(), SNet_ChannelType.GameNonCritical);
+        s_AccuracyDataPacket.Send(data.GetAccuracyData(), AccuracyDataListeners.Values.ToList());
     }
 
     internal static void BroadcastAccuracyDataListener()
     {
-        NetworkAPI.InvokeEvent(eBroadcastListenAccuracyName, broadcastData, SNet_ChannelType.GameNonCritical);
+        s_BroadcastrListenAccuracyDataPacket.Send(default);
     }
 
-    private static pBroadcastListenAccuracyData broadcastData = new();
+    private static void OnMasterChanged()
+    {
+        IsMasterHasAcc = CoreAPI.IsPlayerInstalledMod(SNet.Master, PluginInfo.GUID);
+    }
 
-    internal static void OnSessionMemberChanged(SNet_Player player, SessionMemberEvent playerEvent)
+    private static void OnSessionMemberChanged(SNet_Player player, SessionMemberEvent playerEvent)
     {
         if (playerEvent == SessionMemberEvent.JoinSessionHub)
         {
@@ -77,9 +83,12 @@ public static class AccuracyManager
         return AccuracyDataListeners.ContainsKey(lookup);
     }
 
-    public static bool IsMasterHasAcc => SNet.Master == null ? false : AccuracyDataListeners.Any(p => p.Key == SNet.Master.Lookup);
+    public static bool IsMasterHasAcc;
 
     private static Dictionary<ulong, SNet_Player> AccuracyDataListeners { get; set; } = new();
+
+    private static SNetExt_Packet<pAccuracyData> s_AccuracyDataPacket;
+    private static SNetExt_Packet<pBroadcastListenAccuracyData> s_BroadcastrListenAccuracyDataPacket;
 
     private struct pBroadcastListenAccuracyData
     {
