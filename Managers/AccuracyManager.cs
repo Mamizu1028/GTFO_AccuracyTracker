@@ -3,11 +3,14 @@ using Hikaria.Core.SNetworkExt;
 using Player;
 using SNetwork;
 using static Hikaria.AccuracyTracker.Handlers.AccuracyUpdater;
+using Version = Hikaria.Core.Version;
 
 namespace Hikaria.AccuracyTracker.Managers;
 
 public static class AccuracyManager
 {
+    private static Version MinimumVer = new("1.2.0");
+
     internal static void Setup()
     {
         CoreAPI.OnPlayerModsSynced += OnPlayerModsSynced;
@@ -39,14 +42,14 @@ public static class AccuracyManager
 
     private static bool AccuracyDataListenerFilter(SNet_Player player)
     {
-        return CoreAPI.IsPlayerInstalledMod(player, PluginInfo.GUID, new("1.2.0"));
+        return CoreAPI.IsPlayerInstalledMod(player, PluginInfo.GUID, MinimumVer);
     }
 
     private static void OnPlayerModsSynced(SNet_Player player, IEnumerable<pModInfo> mods)
     {
         if (player.IsMaster)
         {
-            IsMasterHasAcc = CoreAPI.IsPlayerInstalledMod(player, PluginInfo.GUID, new("1.2.0"));
+            IsMasterHasAcc = CoreAPI.IsPlayerInstalledMod(player, PluginInfo.GUID, MinimumVer);
         }
     }
 
@@ -65,7 +68,7 @@ public static class AccuracyManager
 
     private static void OnMasterChanged()
     {
-        IsMasterHasAcc = CoreAPI.IsPlayerInstalledMod(SNet.Master, PluginInfo.GUID, new("1.2.0"));
+        IsMasterHasAcc = CoreAPI.IsPlayerInstalledMod(SNet.Master, PluginInfo.GUID, MinimumVer);
     }
 
     public static bool IsAccuracyListener(ulong lookup)

@@ -255,6 +255,7 @@ public class AccuracyUpdater : MonoBehaviour, IOnMasterChanged
         }
         AccuracyDataLookup.Remove(lookup);
         AccuracyRegisteredCharacterIndex.Remove(lookup);
+        ShotsBuffer.Remove(lookup);
     }
 
     internal static void AddHitted(ulong lookup, InventorySlot slot, uint count)
@@ -463,6 +464,8 @@ public class AccuracyUpdater : MonoBehaviour, IOnMasterChanged
     private static Dictionary<int, TextMeshPro> AccuracyTextMeshes = new();
     private static Dictionary<int, bool> AccuracyTextMeshesVisible = new();
     private static Dictionary<ulong, int> AccuracyRegisteredCharacterIndex = new();
+    internal static Dictionary<ulong, uint> ShotsBuffer = new();
+
 
     public class AccuracyData
     {

@@ -235,30 +235,6 @@ public class AccuracyTracker : Feature
     #endregion
 
     #region FetchOtherPlayersFire
-    private static Dictionary<ulong, InventorySlot> LastWieldValidSlot { get; set; } = new();
-
-    [ArchivePatch(typeof(PlayerSync), nameof(PlayerSync.SyncInventoryStatus))]
-    private class PlayerSync__SyncInventoryStatus__Patch
-    {
-        private static void Prefix(PlayerSync __instance)
-        {
-            var player = __instance.m_agent.Owner;
-            if (player.IsLocal || !SNet.IsMaster || player.IsBot)
-            {
-                return;
-            }
-            if (AccuracyManager.IsAccuracyListener(player.Lookup))
-            {
-                return;
-            }
-            var slot = __instance.GetWieldedSlot();
-            if (slot == InventorySlot.GearStandard || slot == InventorySlot.GearSpecial)
-            {
-                LastWieldValidSlot[player.Lookup] = slot;
-            }
-        }
-    }
-
     // 用于解决延迟问题导致的开火次数错误，非完美解决方法，针对主机时其他玩家
     [ArchivePatch(typeof(PlayerInventorySynced), nameof(PlayerInventorySynced.GetSync))]
     private class PlayerInventorySynced__GetSync__Patch
@@ -284,36 +260,29 @@ public class AccuracyTracker : Feature
                 return;
             }
             uint count = (uint)__instance.Owner.Sync.FireCountSync;
-            if (__instance.WieldedItem != null && (wieldSlot == InventorySlot.GearStandard || wieldSlot == InventorySlot.GearSpecial))
+            if (AccuracyUpdater.ShotsBuffer.TryGetValue(player.Lookup, out var shots))
             {
-                var bulletWeapon = __instance.WieldedItem.TryCast<BulletWeaponSynced>();
-                if (bulletWeapon != null)
-                {
-                    var shotGun = bulletWeapon.TryCast<ShotgunSynced>();
-                    if (shotGun != null && shotGun.ArchetypeData != null)
-                    {
-                        count *= (uint)shotGun.ArchetypeData.ShotgunBulletCount;
-                    }
-                }
+                count += shots;
+                AccuracyUpdater.ShotsBuffer[player.Lookup] = 0;
             }
-            else if (LastWieldValidSlot.TryGetValue(player.Lookup, out wieldSlot))
+            if (__instance.WieldedItem != null)
             {
-                if (!PlayerBackpackManager.TryGetBackpack(player, out var backpack) || !backpack.TryGetBackpackItem(wieldSlot, out var backpackItem))
+                if (wieldSlot == InventorySlot.GearStandard || wieldSlot == InventorySlot.GearSpecial)
                 {
-                    return;
-                }
-                var bulletWeapon = backpackItem.Instance.TryCast<BulletWeaponSynced>();
-                if (bulletWeapon != null)
-                {
-                    var shotGun = bulletWeapon.TryCast<ShotgunSynced>();
-                    if (shotGun != null && shotGun.ArchetypeData != null)
+                    var bulletWeapon = __instance.WieldedItem.TryCast<BulletWeaponSynced>();
+                    if (bulletWeapon != null)
                     {
-                        count *= (uint)shotGun.ArchetypeData.ShotgunBulletCount;
+                        var shotGun = bulletWeapon.TryCast<ShotgunSynced>();
+                        if (shotGun != null && shotGun.ArchetypeData != null)
+                        {
+                            count *= (uint)shotGun.ArchetypeData.ShotgunBulletCount;
+                        }
                     }
                 }
                 else
                 {
-                    Logs.LogError("Not BulletWeapon but fire bullets?");
+                    AccuracyUpdater.ShotsBuffer[player.Lookup] = count;
+                    return;
                 }
             }
             AccuracyUpdater.AddShotted(player.Lookup, wieldSlot, count);
