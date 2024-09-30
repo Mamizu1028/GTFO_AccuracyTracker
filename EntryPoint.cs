@@ -40,7 +40,7 @@ public class EntryPoint : IArchiveModule
 
     public Dictionary<Language, string> ModuleGroupLanguages => new()
     {
-        { Language.Chinese, "命中率显示" },
+        { Language.Chinese, "命中率指示器" },
         { Language.English, "Accuracy Tracker" }
     };
 }

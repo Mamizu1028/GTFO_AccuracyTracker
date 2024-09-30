@@ -18,7 +18,7 @@ namespace Hikaria.AccuracyTracker.Features;
 [DisallowInGameToggle]
 public class AccuracyTracker : Feature
 {
-    public override string Name => "命中率显示";
+    public override string Name => "命中率指示器";
 
     public override bool InlineSettingsIntoParentMenu => true;
 
@@ -341,7 +341,7 @@ public class AccuracyTracker : Feature
                 BulletPiercingLimit = data.PiercingBullets ? (uint)data.PiercingDamageCountLimit - 1 : 0;
             }
         }
-        private static void Postfix(BulletWeapon __instance)
+        private static void Postfix(BulletWeaponSynced __instance)
         {
             if (!__instance.Owner.Owner.IsBot || !SNet.IsMaster)
                 return;
@@ -362,13 +362,14 @@ public class AccuracyTracker : Feature
             AccuracyUpdater.AddWeakspotHitted(lookup, __instance.ItemDataBlock.inventorySlot, weakspotHitCount);
             AccuracyUpdater.MarkAccuracyDataNeedUpdate(lookup);
             CurrentBulletIndex = 0;
+            BulletHitDataLookup.Clear();
         }
     }
 
     [ArchivePatch(typeof(ShotgunSynced), nameof(ShotgunSynced.Fire))]
     private class ShotgunSynced__Fire__Patch
     {
-        private static void Prefix(Shotgun __instance)
+        private static void Prefix(ShotgunSynced __instance)
         {
             if (!__instance.Owner.Owner.IsBot || !SNet.IsMaster)
                 return;
@@ -385,7 +386,7 @@ public class AccuracyTracker : Feature
                 BulletsPerFire = (uint)data.ShotgunBulletCount;
             }
         }
-        private static void Postfix(BulletWeapon __instance)
+        private static void Postfix(ShotgunSynced __instance)
         {
             if (!__instance.Owner.Owner.IsBot || !SNet.IsMaster)
                 return;
@@ -406,6 +407,7 @@ public class AccuracyTracker : Feature
             AccuracyUpdater.AddWeakspotHitted(lookup, __instance.ItemDataBlock.inventorySlot, weakspotHitCount);
             AccuracyUpdater.MarkAccuracyDataNeedUpdate(lookup);
             CurrentBulletIndex = 0;
+            BulletHitDataLookup.Clear();
         }
     }
     #endregion
