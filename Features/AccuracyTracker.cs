@@ -5,14 +5,12 @@ using Hikaria.AccuracyTracker.Handlers;
 using Hikaria.AccuracyTracker.Managers;
 using Player;
 using SNetwork;
-using System.Linq;
 using TheArchive.Core.Attributes;
 using TheArchive.Core.Attributes.Feature.Settings;
 using TheArchive.Core.FeaturesAPI;
 using TheArchive.Core.Models;
 using TheArchive.Loader;
 using UnityEngine;
-using UnityEngine.UI;
 
 namespace Hikaria.AccuracyTracker.Features;
 
