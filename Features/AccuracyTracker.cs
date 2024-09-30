@@ -5,12 +5,14 @@ using Hikaria.AccuracyTracker.Handlers;
 using Hikaria.AccuracyTracker.Managers;
 using Player;
 using SNetwork;
+using System.Linq;
 using TheArchive.Core.Attributes;
 using TheArchive.Core.Attributes.Feature.Settings;
 using TheArchive.Core.FeaturesAPI;
 using TheArchive.Core.Models;
 using TheArchive.Loader;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Hikaria.AccuracyTracker.Features;
 
@@ -150,7 +152,7 @@ public class AccuracyTracker : Feature
     #region FeatureMethods
     public override void OnGameStateChanged(int state)
     {
-        if (state == (int)eGameStateName.Lobby)
+        if (state == (int)eGameStateName.Lobby || state == (int)eGameStateName.AfterLevel)
         {
             AccuracyUpdater.DoClear();
         }
@@ -242,28 +244,21 @@ public class AccuracyTracker : Feature
         private static void Prefix(PlayerInventorySynced __instance)
         {
             if (__instance.Owner == null)
-            {
                 return;
-            }
             var player = __instance.Owner.Owner;
             if (!SNet.IsMaster || player.IsBot || player.IsLocal)
-            {
                 return;
-            }
-            if (AccuracyManager.IsAccuracyListener(player.Lookup))
-            {
+            var lookup = player.Lookup;
+            if (AccuracyManager.IsAccuracyListener(lookup))
                 return;
-            }
             var wieldSlot = __instance.Owner.Inventory.WieldedSlot;
             if (wieldSlot == InventorySlot.GearClass)
-            {
                 return;
-            }
             uint count = (uint)__instance.Owner.Sync.FireCountSync;
-            if (AccuracyUpdater.ShotsBuffer.TryGetValue(player.Lookup, out var shots))
+            if (AccuracyUpdater.ShotsBuffer.TryGetValue(lookup, out var shots))
             {
                 count += shots;
-                AccuracyUpdater.ShotsBuffer[player.Lookup] = 0;
+                AccuracyUpdater.ShotsBuffer[lookup] = 0;
             }
             if (__instance.WieldedItem != null)
             {
@@ -281,12 +276,12 @@ public class AccuracyTracker : Feature
                 }
                 else
                 {
-                    AccuracyUpdater.ShotsBuffer[player.Lookup] = count;
+                    AccuracyUpdater.ShotsBuffer[lookup] = count;
                     return;
                 }
             }
-            AccuracyUpdater.AddShotted(player.Lookup, wieldSlot, count);
-            AccuracyUpdater.MarkAccuracyDataNeedUpdate(player.Lookup);
+            AccuracyUpdater.AddShotted(lookup, wieldSlot, count);
+            AccuracyUpdater.MarkAccuracyDataNeedUpdate(lookup);
         }
     }
 
@@ -298,59 +293,35 @@ public class AccuracyTracker : Feature
         {
             if (IsSentryGunFire)
                 return;
-            if (data.source.TryGet(out var agent))
+            if (!data.source.TryGet(out var agent))
+                return;
+            var playerAgent = agent.TryCast<PlayerAgent>();
+            if (playerAgent == null)
+                return;
+            var player = playerAgent.Owner;
+            var lookup = player.Lookup;
+            if (AccuracyManager.IsAccuracyListener(lookup) || player.IsLocal || player.IsBot)
+                return;
+            var slot = playerAgent.Inventory.WieldedSlot;
+            if (slot != InventorySlot.GearStandard && slot != InventorySlot.GearSpecial)
             {
-                var playerAgent = agent.TryCast<PlayerAgent>();
-                if (playerAgent == null)
-                {
-                    return;
-                }
-                var player = playerAgent.Owner;
-                if (AccuracyManager.IsAccuracyListener(player.Lookup) || player.IsLocal || player.IsBot)
-                {
-                    return;
-                }
-                var slot = playerAgent.Inventory.WieldedSlot;
-                if (slot != InventorySlot.GearStandard && slot != InventorySlot.GearSpecial)
-                {
-                    Logs.LogError("Not wielding BulletWeapon but ReceiveBulletDamage?");
-                    return;
-                }
-                if (__instance.DamageLimbs[data.limbID].m_type == eLimbDamageType.Weakspot)
-                {
-                    AccuracyUpdater.AddWeakspotHitted(player.Lookup, slot, 1);
-                }
-                AccuracyUpdater.AddHitted(player.Lookup, slot, 1);
-                AccuracyUpdater.MarkAccuracyDataNeedUpdate(player.Lookup);
+                Logs.LogError("Not wielding BulletWeapon but ReceiveBulletDamage?");
+                return;
             }
+            if (data.limbID >= 0 && __instance.DamageLimbs[data.limbID].m_type == eLimbDamageType.Weakspot)
+                AccuracyUpdater.AddWeakspotHitted(lookup, slot, 1);
+            AccuracyUpdater.AddHitted(lookup, slot, 1);
+            AccuracyUpdater.MarkAccuracyDataNeedUpdate(lookup);
         }
     }
     #endregion
 
     #region FetchBotsFireWhenHost
-    private static bool IsWeaponOwner(BulletWeapon weapon)
-    {
-        if (weapon == null || weapon.Owner == null || weapon.Owner.Owner == null)
-        {
-            return false;
-        }
-        return weapon.Owner.Owner.IsLocal;
-    }
 
-    private static uint HitCount;
-
-    private static uint WeakspotHitCount;
-
-    private static int BulletPiercingLimit;
-
-    private static int BulletsCountPerFire;
-
-    private static int BulletHitCalledCount;
-
+    private static uint BulletPiercingLimit;
+    private static uint BulletsPerFire;
     private static bool IsPiercingBullet;
-
     private static bool IsInWeaponFire;
-
     private static bool CanCalc;
 
     [ArchivePatch(typeof(BulletWeaponSynced), nameof(BulletWeaponSynced.Fire))]
@@ -359,35 +330,40 @@ public class AccuracyTracker : Feature
         private static void Prefix(BulletWeaponSynced __instance)
         {
             if (!__instance.Owner.Owner.IsBot || !SNet.IsMaster)
-            {
                 return;
-            }
             CanCalc = true;
             IsInWeaponFire = true;
             IsPiercingBullet = false;
-            BulletPiercingLimit = 1;
-            HitCount = 0;
-            BulletHitCalledCount = 0;
-            BulletsCountPerFire = 1;
+            BulletPiercingLimit = 0;
+            BulletsPerFire = 1;
             var data = __instance.ArchetypeData;
             if (data != null)
             {
                 IsPiercingBullet = data.PiercingBullets;
-                BulletPiercingLimit = data.PiercingBullets ? data.PiercingDamageCountLimit : 0;
+                BulletPiercingLimit = data.PiercingBullets ? (uint)data.PiercingDamageCountLimit - 1 : 0;
             }
         }
         private static void Postfix(BulletWeapon __instance)
         {
             if (!__instance.Owner.Owner.IsBot || !SNet.IsMaster)
-            {
                 return;
-            }
             CanCalc = false;
             IsInWeaponFire = false;
-            var player = __instance.Owner.Owner;
-            AccuracyUpdater.AddShotted(player.Lookup, __instance.ItemDataBlock.inventorySlot, (uint)BulletsCountPerFire);
-            AccuracyUpdater.AddHitted(player.Lookup, __instance.ItemDataBlock.inventorySlot, HitCount);
-            AccuracyUpdater.MarkAccuracyDataNeedUpdate(player.Lookup);
+            var lookup = __instance.Owner.Owner.Lookup;
+            uint hitCount = 0;
+            uint weakspotHitCount = 0;
+            foreach (var data in BulletHitDataLookup.Values)
+            {
+                if (data.IsHit)
+                    hitCount++;
+                if (data.IsWeakspotHit)
+                    weakspotHitCount++;
+            }
+            AccuracyUpdater.AddShotted(lookup, __instance.ItemDataBlock.inventorySlot, BulletsPerFire);
+            AccuracyUpdater.AddHitted(lookup, __instance.ItemDataBlock.inventorySlot, hitCount);
+            AccuracyUpdater.AddWeakspotHitted(lookup, __instance.ItemDataBlock.inventorySlot, weakspotHitCount);
+            AccuracyUpdater.MarkAccuracyDataNeedUpdate(lookup);
+            CurrentBulletIndex = 0;
         }
     }
 
@@ -397,41 +373,47 @@ public class AccuracyTracker : Feature
         private static void Prefix(Shotgun __instance)
         {
             if (!__instance.Owner.Owner.IsBot || !SNet.IsMaster)
-            {
                 return;
-            }
             CanCalc = true;
             IsInWeaponFire = true;
             IsPiercingBullet = false;
-            BulletPiercingLimit = 1;
-            HitCount = 0;
-            BulletHitCalledCount = 0;
-            BulletsCountPerFire = 1;
+            BulletPiercingLimit = 0;
+            BulletsPerFire = 1;
             var data = __instance.ArchetypeData;
             if (data != null)
             {
                 IsPiercingBullet = data.PiercingBullets;
-                BulletPiercingLimit = data.PiercingBullets ? data.PiercingDamageCountLimit : 0;
-                BulletsCountPerFire = data.ShotgunBulletCount;
+                BulletPiercingLimit = data.PiercingBullets ? (uint)data.PiercingDamageCountLimit - 1 : 0;
+                BulletsPerFire = (uint)data.ShotgunBulletCount;
             }
         }
         private static void Postfix(BulletWeapon __instance)
         {
             if (!__instance.Owner.Owner.IsBot || !SNet.IsMaster)
-            {
                 return;
-            }
             CanCalc = false;
             IsInWeaponFire = false;
-            var player = __instance.Owner.Owner;
-            AccuracyUpdater.AddShotted(player.Lookup, __instance.ItemDataBlock.inventorySlot, (uint)BulletsCountPerFire);
-            AccuracyUpdater.AddHitted(player.Lookup, __instance.ItemDataBlock.inventorySlot, HitCount);
-            AccuracyUpdater.MarkAccuracyDataNeedUpdate(player.Lookup);
+            var lookup = __instance.Owner.Owner.Lookup;
+            uint hitCount = 0;
+            uint weakspotHitCount = 0;
+            foreach (var data in BulletHitDataLookup.Values)
+            {
+                if (data.IsHit)
+                    hitCount++;
+                if (data.IsWeakspotHit)
+                    weakspotHitCount++;
+            }
+            AccuracyUpdater.AddShotted(lookup, __instance.ItemDataBlock.inventorySlot, BulletsPerFire);
+            AccuracyUpdater.AddHitted(lookup, __instance.ItemDataBlock.inventorySlot, hitCount);
+            AccuracyUpdater.AddWeakspotHitted(lookup, __instance.ItemDataBlock.inventorySlot, weakspotHitCount);
+            AccuracyUpdater.MarkAccuracyDataNeedUpdate(lookup);
+            CurrentBulletIndex = 0;
         }
     }
     #endregion
 
     #region FetchLocalFire
+    private static bool IsWeaponOwner(BulletWeapon weapon) => weapon?.Owner?.IsLocallyOwned ?? false;
 
     [ArchivePatch(typeof(BulletWeapon), nameof(BulletWeapon.Fire))]
     private class BulletWeapon__Fire__Patch
@@ -439,147 +421,202 @@ public class AccuracyTracker : Feature
         private static void Prefix(BulletWeapon __instance)
         {
             if (!IsWeaponOwner(__instance))
-            {
-                return;
-            }
+                return; 
             CanCalc = true;
             IsInWeaponFire = true;
             IsPiercingBullet = false;
-            BulletPiercingLimit = 1;
-            HitCount = 0;
-            WeakspotHitCount = 0;
-            BulletHitCalledCount = 0;
-            BulletsCountPerFire = 1;
+            BulletPiercingLimit = 0;
+            BulletsPerFire = 1;
             var data = __instance.ArchetypeData;
             if (data != null)
             {
                 IsPiercingBullet = data.PiercingBullets;
-                BulletPiercingLimit = data.PiercingBullets ? data.PiercingDamageCountLimit : 0;
+                BulletPiercingLimit = data.PiercingBullets ? (uint)data.PiercingDamageCountLimit - 1 : 0;
             }
         }
 
         private static void Postfix(BulletWeapon __instance)
         {
             if (!IsWeaponOwner(__instance))
-            {
                 return;
-            }
             CanCalc = false;
             IsInWeaponFire = false;
-            var player = __instance.Owner.Owner;
-            AccuracyUpdater.AddShotted(player.Lookup, __instance.ItemDataBlock.inventorySlot, (uint)BulletsCountPerFire);
-            AccuracyUpdater.AddHitted(player.Lookup, __instance.ItemDataBlock.inventorySlot, HitCount);
-            AccuracyUpdater.AddWeakspotHitted(player.Lookup, __instance.ItemDataBlock.inventorySlot, WeakspotHitCount);
-            AccuracyUpdater.MarkAccuracyDataNeedUpdate(player.Lookup);
+            var lookup = __instance.Owner.Owner.Lookup;
+            uint hitCount = 0;
+            uint weakspotHitCount = 0;
+            foreach (var data in BulletHitDataLookup.Values)
+            {
+                if (data.IsHit)
+                    hitCount++;
+                if (data.IsWeakspotHit)
+                    weakspotHitCount++;
+            }
+            AccuracyUpdater.AddShotted(lookup, __instance.ItemDataBlock.inventorySlot, BulletsPerFire);
+            AccuracyUpdater.AddHitted(lookup, __instance.ItemDataBlock.inventorySlot, hitCount);
+            AccuracyUpdater.AddWeakspotHitted(lookup, __instance.ItemDataBlock.inventorySlot, weakspotHitCount);
+            AccuracyUpdater.MarkAccuracyDataNeedUpdate(lookup);
+            CurrentBulletIndex = 0;
+            BulletHitDataLookup.Clear();
         }
     }
 
+    static bool IsShotgunFireShots;
     [ArchivePatch(typeof(Shotgun), nameof(Shotgun.Fire))]
     private class Shotgun__Fire__Patch
     {
         private static void Prefix(Shotgun __instance)
         {
             if (!IsWeaponOwner(__instance))
-            {
                 return;
-            }
             CanCalc = true;
             IsInWeaponFire = true;
             IsPiercingBullet = false;
-            BulletPiercingLimit = 1;
-            HitCount = 0;
-            WeakspotHitCount = 0;
-            BulletHitCalledCount = 0;
-            BulletsCountPerFire = 1;
+            BulletPiercingLimit = 0;
+            BulletsPerFire = 1;
             var data = __instance.ArchetypeData;
             if (data != null)
             {
                 IsPiercingBullet = data.PiercingBullets;
-                BulletPiercingLimit = data.PiercingBullets ? data.PiercingDamageCountLimit : 0;
-                BulletsCountPerFire = data.ShotgunBulletCount;
+                BulletPiercingLimit = data.PiercingBullets ? (uint)data.PiercingDamageCountLimit - 1 : 0;
+                BulletsPerFire = (uint)data.ShotgunBulletCount;
             }
+            IsShotgunFireShots = true;
         }
 
         private static void Postfix(Shotgun __instance)
         {
             if (!IsWeaponOwner(__instance))
-            {
                 return;
-            }
             CanCalc = false;
             IsInWeaponFire = false;
-            var player = __instance.Owner.Owner;
-            AccuracyUpdater.AddShotted(player.Lookup, __instance.ItemDataBlock.inventorySlot, (uint)BulletsCountPerFire);
-            AccuracyUpdater.AddHitted(player.Lookup, __instance.ItemDataBlock.inventorySlot, HitCount);
-            AccuracyUpdater.AddWeakspotHitted(player.Lookup, __instance.ItemDataBlock.inventorySlot, WeakspotHitCount);
-            AccuracyUpdater.MarkAccuracyDataNeedUpdate(player.Lookup);
+            var lookup = __instance.Owner.Owner.Lookup;
+            uint hitCount = 0;
+            uint weakspotHitCount = 0;
+            foreach (var data in BulletHitDataLookup.Values)
+            {
+                if (data.IsHit)
+                    hitCount++;
+                if (data.IsWeakspotHit)
+                    weakspotHitCount++;
+            }
+            AccuracyUpdater.AddShotted(lookup, __instance.ItemDataBlock.inventorySlot, BulletsPerFire);
+            AccuracyUpdater.AddHitted(lookup, __instance.ItemDataBlock.inventorySlot, hitCount);
+            AccuracyUpdater.AddWeakspotHitted(lookup, __instance.ItemDataBlock.inventorySlot, weakspotHitCount);
+            AccuracyUpdater.MarkAccuracyDataNeedUpdate(lookup);
+            IsShotgunFireShots = false;
+            CurrentBulletIndex = 0;
+            BulletHitDataLookup.Clear();
         }
     }
 
+    //只用于获取是否命中弱点
     [ArchivePatch(typeof(Dam_EnemyDamageLimb), nameof(Dam_EnemyDamageLimb.BulletDamage))]
     private class Dam_EnemyDamageLimb__BulletDamage__Patch
     {
         private static void Postfix(Dam_EnemyDamageLimb __instance, Agent sourceAgent)
         {
             if (!IsInWeaponFire || IsSentryGunFire || !CanCalc || sourceAgent == null)
-            {
                 return;
-            }
+
+            if (CurrentBulletHitData == null)
+                return;
+
             var playerAgent = sourceAgent.TryCast<PlayerAgent>();
-            if (playerAgent?.IsLocallyOwned ?? false)
-            {
-                BulletWeapon__BulletHit__Patch.EnemyBulletDamageCalled = true;
-                BulletWeapon__BulletHit__Patch.WeakspotHitted = __instance.m_type == eLimbDamageType.Weakspot;
-            }
+            if (!playerAgent?.IsLocallyOwned ?? true)
+                return;
+
+            if (__instance.m_type == eLimbDamageType.Weakspot && !CurrentBulletHitData.IsWeakspotHit)
+                CurrentBulletHitData.IsWeakspotHit = true;
         }
     }
 
     #endregion
 
     #region HandleFire
+
+    private class BulletHitData
+    {
+        public uint Index;
+        public uint BulletHitCount;
+        public bool IsHit;
+        public bool IsWeakspotHit;
+        public bool IsDead;
+    }
+    static uint CurrentBulletIndex = 0;
+    [ArchivePatch(typeof(global::Weapon), nameof(global::Weapon.CastWeaponRay))]
+    private class Weapon__CastWeaponRay__Patch
+    {
+        public static Type[] ParameterTypes() => new[]
+            {
+                typeof(Transform),
+                typeof(global::Weapon.WeaponHitData).MakeByRefType(),
+                typeof(Vector3),
+                typeof(int)
+            };
+
+        private static void Postfix(ref Weapon.WeaponHitData weaponRayData, bool __result)
+        {
+            if (!IsInWeaponFire || IsSentryGunFire || !CanCalc)
+                return;
+            if (!BulletHitDataLookup.TryGetValue(CurrentBulletIndex, out CurrentBulletHitData))
+            {
+                CurrentBulletHitData = new()
+                {
+                    Index = CurrentBulletIndex,
+                    BulletHitCount = 0,
+                    IsHit = false,
+                    IsWeakspotHit = false,
+                    IsDead = !IsPiercingBullet
+                };
+                BulletHitDataLookup.Add(CurrentBulletIndex, CurrentBulletHitData);
+            }
+
+            if (!__result)
+            {
+                CurrentBulletHitData.IsDead = true;
+                CurrentBulletIndex++;
+            }
+        }
+    }
+
+
+    static BulletHitData CurrentBulletHitData;
+    static Dictionary<uint, BulletHitData> BulletHitDataLookup = new();
+
     [ArchivePatch(typeof(BulletWeapon), nameof(BulletWeapon.BulletHit))]
     private class BulletWeapon__BulletHit__Patch
     {
-        public static bool EnemyBulletDamageCalled;
-        public static bool WeakspotHitted;
-        private static bool CanCalcHitted;
-        private static bool CanCalcWeakspotHitted;
         private static void Postfix(bool __result)
         {
             if (!IsInWeaponFire || IsSentryGunFire || !CanCalc)
-            {
                 return;
-            }
-            if (!__result)
-            {
-                EnemyBulletDamageCalled = false;
+
+            if (CurrentBulletHitData == null)
                 return;
+
+            if (__result)
+            {
+                if (!CurrentBulletHitData.IsHit)
+                    CurrentBulletHitData.IsHit = true;
+
+                if (IsPiercingBullet)
+                    CurrentBulletHitData.BulletHitCount++;
             }
+
             if (!IsPiercingBullet)
             {
-                CanCalcHitted = true;
-                CanCalcWeakspotHitted = true;
+                CurrentBulletHitData.IsDead = true;
+                CurrentBulletIndex++;
             }
-            else if (BulletHitCalledCount % BulletPiercingLimit == 0)
+            else
             {
-                CanCalcHitted = true;
-                CanCalcWeakspotHitted = true;
-            }
-            BulletHitCalledCount++;
-            if (CanCalcHitted)
-            {
-                HitCount++;
-                CanCalcHitted = false;
-            }
-            if (CanCalcWeakspotHitted && EnemyBulletDamageCalled)
-            {
-                if (WeakspotHitted)
+                if (!Weapon.s_weaponRayData.rayHit.collider.gameObject.IsInLayerMask(LayerManager.MASK_BULLETWEAPON_PIERCING_PASS) 
+                    || CurrentBulletHitData.BulletHitCount >= BulletPiercingLimit + 1)
                 {
-                    WeakspotHitCount++;
-                    CanCalcWeakspotHitted = false;
+                    CurrentBulletHitData.IsDead = true;
+                    CurrentBulletIndex++;
                 }
             }
-            EnemyBulletDamageCalled = false;
         }
     }
     #endregion
