@@ -192,15 +192,6 @@ public class AccuracyUpdater : MonoBehaviour, IOnMasterChanged
         AccuracyDataLookup[lookup].NeedUpdate = true;
     }
 
-    internal static void DoClear()
-    {
-        foreach (var data in AccuracyDataLookup.Values)
-        {
-            data.DoClear();
-            data.NeedUpdate = true;
-        }
-    }
-
     internal static void SetVisible(int index, bool visible, bool update = true)
     {
         AccuracyTextMeshesVisible[index] = Enabled ? visible : false;

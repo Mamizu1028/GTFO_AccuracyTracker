@@ -21,6 +21,15 @@ public static class AccuracyManager
         s_AccuracyDataBroadcastAction.OnPlayerRemovedFromListeners += UnregisterPlayer;
     }
 
+    internal static void DoClear()
+    {
+        foreach (var data in AccuracyDataLookup.Values)
+        {
+            data.DoClear();
+            data.NeedUpdate = true;
+        }
+    }
+
     private static void SyncToPlayer(SNet_Player player)
     {
         foreach (var data in AccuracyDataLookup.Values)

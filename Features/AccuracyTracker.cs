@@ -152,7 +152,7 @@ public class AccuracyTracker : Feature
     {
         if (state == (int)eGameStateName.Lobby || state == (int)eGameStateName.AfterLevel)
         {
-            AccuracyUpdater.DoClear();
+            AccuracyManager.DoClear();
         }
     }
 
