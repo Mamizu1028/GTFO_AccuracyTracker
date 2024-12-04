@@ -1,12 +1,13 @@
 ﻿using TheArchive.Core;
 using TheArchive.Core.Attributes;
+using TheArchive.Core.FeaturesAPI;
 using TheArchive.Core.Localization;
 
 [assembly: ModDefaultFeatureGroupName("Accuracy Tracker")]
 
 namespace Hikaria.AccuracyTracker;
 
-[ArchiveDependency(Core.PluginInfo.GUID)]
+[ArchiveDependency(Core.PluginInfo.GUID, "0.0.13")]
 [ArchiveModule(PluginInfo.GUID, PluginInfo.NAME, PluginInfo.VERSION)]
 public class EntryPoint : IArchiveModule
 {
@@ -36,11 +37,14 @@ public class EntryPoint : IArchiveModule
 
     public ArchiveLegacyPatcher Patcher { get; set; }
 
-    public string ModuleGroup => "Accuracy Tracker";
-
-    public Dictionary<Language, string> ModuleGroupLanguages => new()
+    public string ModuleGroup => FeatureGroups.GetOrCreateModuleGroup("Accuracy Tracker", new()
     {
         { Language.Chinese, "命中率指示器" },
         { Language.English, "Accuracy Tracker" }
+    });
+
+    public Dictionary<Language, string> ModuleGroupLanguages => new()
+    {
+
     };
 }

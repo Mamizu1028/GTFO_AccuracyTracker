@@ -14,7 +14,7 @@ public static class AccuracyManager
     internal static void Setup()
     {
         CoreAPI.OnPlayerModsSynced += OnPlayerModsSynced;
-        GameEventAPI.OnPlayerSlotChanged += OnPlayerSlotChanged;
+        GameEventAPI.OnPlayerEvent += OnPlayerEvent;
         GameEventAPI.OnMasterChanged += OnMasterChanged;
         s_AccuracyDataBroadcastAction = SNetExt_BroadcastAction<pAccuracyData>.Create($"{typeof(pAccuracyData).FullName}_v3", ReceiveAccuracyData, AccuracyDataListenerFilter, SNet_ChannelType.GameNonCritical);
         s_AccuracyDataBroadcastAction.OnPlayerAddedToListeners += SyncToPlayer;
@@ -41,9 +41,9 @@ public static class AccuracyManager
         }
     }
 
-    private static void OnPlayerSlotChanged(SNet_Player player, SNet_SlotType type, SNet_SlotHandleType handle, int index)
+    private static void OnPlayerEvent(SNet_Player player, SNet_PlayerEvent playerEvent, SNet_PlayerEventReason reason)
     {
-        if (handle == SNet_SlotHandleType.Assign || handle == SNet_SlotHandleType.Set)
+        if (playerEvent == SNet_PlayerEvent.PlayerIsSynced)
         {
             RegisterPlayer(player);
         }

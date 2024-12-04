@@ -320,7 +320,6 @@ public class AccuracyTracker : Feature
     private static uint BulletsPerFire;
     private static bool IsPiercingBullet;
     private static bool IsInWeaponFire;
-    private static bool CanCalc;
 
     [ArchivePatch(typeof(BulletWeaponSynced), nameof(BulletWeaponSynced.Fire))]
     private class BulletWeaponSynced__Fire__Patch
@@ -329,7 +328,6 @@ public class AccuracyTracker : Feature
         {
             if (!__instance.Owner.Owner.IsBot || !SNet.IsMaster)
                 return;
-            CanCalc = true;
             IsInWeaponFire = true;
             IsPiercingBullet = false;
             BulletPiercingLimit = 0;
@@ -338,14 +336,13 @@ public class AccuracyTracker : Feature
             if (data != null)
             {
                 IsPiercingBullet = data.PiercingBullets;
-                BulletPiercingLimit = data.PiercingBullets ? (uint)data.PiercingDamageCountLimit - 1 : 0;
+                BulletPiercingLimit = data.PiercingBullets ? (uint)data.PiercingDamageCountLimit : 0;
             }
         }
         private static void Postfix(BulletWeaponSynced __instance)
         {
             if (!__instance.Owner.Owner.IsBot || !SNet.IsMaster)
                 return;
-            CanCalc = false;
             IsInWeaponFire = false;
             var lookup = __instance.Owner.Owner.Lookup;
             uint hitCount = 0;
@@ -373,7 +370,6 @@ public class AccuracyTracker : Feature
         {
             if (!__instance.Owner.Owner.IsBot || !SNet.IsMaster)
                 return;
-            CanCalc = true;
             IsInWeaponFire = true;
             IsPiercingBullet = false;
             BulletPiercingLimit = 0;
@@ -382,7 +378,7 @@ public class AccuracyTracker : Feature
             if (data != null)
             {
                 IsPiercingBullet = data.PiercingBullets;
-                BulletPiercingLimit = data.PiercingBullets ? (uint)data.PiercingDamageCountLimit - 1 : 0;
+                BulletPiercingLimit = data.PiercingBullets ? (uint)data.PiercingDamageCountLimit : 0;
                 BulletsPerFire = (uint)data.ShotgunBulletCount;
             }
         }
@@ -390,7 +386,6 @@ public class AccuracyTracker : Feature
         {
             if (!__instance.Owner.Owner.IsBot || !SNet.IsMaster)
                 return;
-            CanCalc = false;
             IsInWeaponFire = false;
             var lookup = __instance.Owner.Owner.Lookup;
             uint hitCount = 0;
@@ -422,7 +417,6 @@ public class AccuracyTracker : Feature
         {
             if (!IsWeaponOwner(__instance))
                 return; 
-            CanCalc = true;
             IsInWeaponFire = true;
             IsPiercingBullet = false;
             BulletPiercingLimit = 0;
@@ -431,7 +425,7 @@ public class AccuracyTracker : Feature
             if (data != null)
             {
                 IsPiercingBullet = data.PiercingBullets;
-                BulletPiercingLimit = data.PiercingBullets ? (uint)data.PiercingDamageCountLimit - 1 : 0;
+                BulletPiercingLimit = data.PiercingBullets ? (uint)data.PiercingDamageCountLimit : 0;
             }
         }
 
@@ -439,7 +433,6 @@ public class AccuracyTracker : Feature
         {
             if (!IsWeaponOwner(__instance))
                 return;
-            CanCalc = false;
             IsInWeaponFire = false;
             var lookup = __instance.Owner.Owner.Lookup;
             uint hitCount = 0;
@@ -468,7 +461,6 @@ public class AccuracyTracker : Feature
         {
             if (!IsWeaponOwner(__instance))
                 return;
-            CanCalc = true;
             IsInWeaponFire = true;
             IsPiercingBullet = false;
             BulletPiercingLimit = 0;
@@ -477,7 +469,7 @@ public class AccuracyTracker : Feature
             if (data != null)
             {
                 IsPiercingBullet = data.PiercingBullets;
-                BulletPiercingLimit = data.PiercingBullets ? (uint)data.PiercingDamageCountLimit - 1 : 0;
+                BulletPiercingLimit = data.PiercingBullets ? (uint)data.PiercingDamageCountLimit : 0;
                 BulletsPerFire = (uint)data.ShotgunBulletCount;
             }
             IsShotgunFireShots = true;
@@ -487,7 +479,6 @@ public class AccuracyTracker : Feature
         {
             if (!IsWeaponOwner(__instance))
                 return;
-            CanCalc = false;
             IsInWeaponFire = false;
             var lookup = __instance.Owner.Owner.Lookup;
             uint hitCount = 0;
@@ -515,7 +506,7 @@ public class AccuracyTracker : Feature
     {
         private static void Postfix(Dam_EnemyDamageLimb __instance, Agent sourceAgent)
         {
-            if (!IsInWeaponFire || IsSentryGunFire || !CanCalc || sourceAgent == null)
+            if (!IsInWeaponFire || IsSentryGunFire || sourceAgent == null)
                 return;
 
             if (CurrentBulletHitData == null)
@@ -556,7 +547,7 @@ public class AccuracyTracker : Feature
 
         private static void Postfix(ref Weapon.WeaponHitData weaponRayData, bool __result)
         {
-            if (!IsInWeaponFire || IsSentryGunFire || !CanCalc)
+            if (!IsInWeaponFire || IsSentryGunFire)
                 return;
             if (!BulletHitDataLookup.TryGetValue(CurrentBulletIndex, out CurrentBulletHitData))
             {
@@ -588,7 +579,7 @@ public class AccuracyTracker : Feature
     {
         private static void Postfix(bool __result)
         {
-            if (!IsInWeaponFire || IsSentryGunFire || !CanCalc)
+            if (!IsInWeaponFire || IsSentryGunFire)
                 return;
 
             if (CurrentBulletHitData == null)
