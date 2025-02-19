@@ -6,5 +6,5 @@ public static class PluginInfo
 
     public const string NAME = "AccuracyTracker";
 
-    public const string VERSION = "1.2.4";
+    public const string VERSION = "1.3.1";
 }
