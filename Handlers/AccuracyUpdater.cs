@@ -19,13 +19,13 @@ public class AccuracyUpdater : MonoBehaviour, IOnMasterChanged
     {
         Instance = this;
         Setup();
-        GameEventAPI.RegisterSelf(this);
+        GameEventAPI.RegisterListener(this);
         this.StartCoroutine(UpdateAccuracyDataCoroutine());
     }
 
     private void OnDestroy()
     {
-        GameEventAPI.UnregisterSelf(this);
+        GameEventAPI.UnregisterListener(this);
     }
 
     private void Setup()

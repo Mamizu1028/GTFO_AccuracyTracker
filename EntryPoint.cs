@@ -7,7 +7,7 @@ using TheArchive.Core.Localization;
 
 namespace Hikaria.AccuracyTracker;
 
-[ArchiveDependency(Core.PluginInfo.GUID, "0.0.13")]
+[ArchiveDependency(Core.PluginInfo.GUID)]
 [ArchiveModule(PluginInfo.GUID, PluginInfo.NAME, PluginInfo.VERSION)]
 public class EntryPoint : IArchiveModule
 {
