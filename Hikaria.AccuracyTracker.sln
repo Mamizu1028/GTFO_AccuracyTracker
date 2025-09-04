@@ -12,6 +12,12 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		GameFolder.props = GameFolder.props
 	EndProjectSection
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Localization", "Localization", "{9BFA64B6-4FA6-460D-ABD0-C90C084B2750}"
+	ProjectSection(SolutionItems) = preProject
+		Localization\AccuracyTracker_Localization.json = Localization\AccuracyTracker_Localization.json
+		Localization\_Hikaria.AccuracyTracker_ModuleLocalization.json = Localization\_Hikaria.AccuracyTracker_ModuleLocalization.json
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
