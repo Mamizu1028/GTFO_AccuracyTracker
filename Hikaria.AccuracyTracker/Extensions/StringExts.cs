@@ -4,11 +4,9 @@ namespace Hikaria.AccuracyTracker.Extensions
 {
     internal static class StringExts
     {
-        public static string RemoveHtmlTags(this string htmlString)
+        public static string RemoveTMPTags(this string richTextString)
         {
-            string pattern = "<.*?>";
-
-            string plainText = Regex.Replace(htmlString, pattern, string.Empty);
+            string plainText = Regex.Replace(richTextString, "<.*?>", string.Empty);
 
             return plainText;
         }

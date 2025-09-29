@@ -3,20 +3,19 @@ using Hikaria.Core.SNetworkExt;
 using Player;
 using SNetwork;
 using static Hikaria.AccuracyTracker.Handlers.AccuracyUpdater;
-using Version = Hikaria.Core.Version;
 
 namespace Hikaria.AccuracyTracker.Managers;
 
 public static class AccuracyManager
 {
-    private static Version MinimumVer = new("1.2.0");
+    private static readonly VersionRange versionRange = "2.x.x";
 
     internal static void Setup()
     {
         CoreAPI.OnPlayerModsSynced += OnPlayerModsSynced;
-        GameEventAPI.OnPlayerEvent += OnPlayerEvent;
-        GameEventAPI.OnMasterChanged += OnMasterChanged;
-        s_AccuracyDataBroadcastAction = SNetExt_BroadcastAction<pAccuracyData>.Create($"{typeof(pAccuracyData).FullName}_v3", ReceiveAccuracyData, AccuracyDataListenerFilter, SNet_ChannelType.GameNonCritical);
+        SNetEventAPI.OnPlayerEvent += OnPlayerEvent;
+        SNetEventAPI.OnMasterChanged += OnMasterChanged;
+        s_AccuracyDataBroadcastAction = SNetExt_BroadcastAction<pAccuracyData>.Create(typeof(pAccuracyData).FullName, ReceiveAccuracyData, AccuracyDataListenerFilter, SNet_ChannelType.GameReceiveCritical);
         s_AccuracyDataBroadcastAction.OnPlayerAddedToListeners += SyncToPlayer;
         s_AccuracyDataBroadcastAction.OnPlayerRemovedFromListeners += UnregisterPlayer;
     }
@@ -26,7 +25,7 @@ public static class AccuracyManager
         foreach (var data in AccuracyDataLookup.Values)
         {
             data.DoClear();
-            data.NeedUpdate = true;
+            data.IsDirty = true;
         }
     }
 
@@ -51,14 +50,14 @@ public static class AccuracyManager
 
     private static bool AccuracyDataListenerFilter(SNet_Player player)
     {
-        return CoreAPI.IsPlayerInstalledMod(player, PluginInfo.GUID, MinimumVer);
+        return CoreAPI.IsPlayerInstalledMod(player, PluginInfo.GUID, versionRange);
     }
 
     private static void OnPlayerModsSynced(SNet_Player player, IEnumerable<pModInfo> mods)
     {
         if (player.IsMaster)
         {
-            IsMasterHasAcc = CoreAPI.IsPlayerInstalledMod(player, PluginInfo.GUID, MinimumVer);
+            IsMasterHasAcc = CoreAPI.IsPlayerInstalledMod(player, PluginInfo.GUID, versionRange);
         }
     }
 
@@ -77,7 +76,7 @@ public static class AccuracyManager
 
     private static void OnMasterChanged()
     {
-        IsMasterHasAcc = CoreAPI.IsPlayerInstalledMod(SNet.Master, PluginInfo.GUID, MinimumVer);
+        IsMasterHasAcc = CoreAPI.IsPlayerInstalledMod(SNet.Master, PluginInfo.GUID, versionRange);
     }
 
     public static bool IsAccuracyListener(ulong lookup)
@@ -115,15 +114,15 @@ public static class AccuracyManager
     {
         internal pAccuracySlotData(AccuracyData.AccuracySlotData data)
         {
-            Hitted = data.m_Hitted;
-            Shotted = data.m_Shotted;
-            WeakspotHitted = data.m_WeakspotHitted;
+            Hits = data.m_Hitted;
+            Shots = data.m_Shotted;
+            WeakspotHits = data.m_WeakspotHitted;
             Slot = data.m_Slot;
         }
 
-        public uint Hitted { get; private set; } = 0;
-        public uint Shotted { get; private set; } = 0;
-        public uint WeakspotHitted { get; private set; } = 0;
+        public uint Hits { get; private set; } = 0;
+        public uint Shots { get; private set; } = 0;
+        public uint WeakspotHits { get; private set; } = 0;
         public InventorySlot Slot { get; private set; } = InventorySlot.None;
     }
 }
